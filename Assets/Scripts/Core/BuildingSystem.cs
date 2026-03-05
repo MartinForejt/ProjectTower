@@ -6,7 +6,6 @@ public class BuildingSystem : MonoBehaviour
 
     private static readonly Vector3 TowerPos = new Vector3(0f, 0f, 18f);
     private const float WALL_RADIUS = 6f;
-    private const int WALL_SEGMENTS = 16;
 
     // Wall
     public bool HasWall => Wall.Instance != null && !Wall.Instance.IsDestroyed;
@@ -16,10 +15,9 @@ public class BuildingSystem : MonoBehaviour
     public const int MAX_TOWER_DEFENSES = 5;
     private System.Collections.Generic.List<Defense> towerDefenses = new System.Collections.Generic.List<Defense>();
     private int towerDefenseCount;
-    private int turretLevel = 1;
 
     public int TowerDefenseCount => towerDefenseCount;
-    public int TurretLevel => turretLevel;
+    public System.Collections.Generic.IReadOnlyList<Defense> Defenses => towerDefenses;
 
     void Awake()
     {
@@ -48,51 +46,38 @@ public class BuildingSystem : MonoBehaviour
         wallParent.transform.position = TowerPos;
         Wall wall = wallParent.AddComponent<Wall>();
 
-        float arcStep = 360f / WALL_SEGMENTS;
-        for (int i = 0; i < WALL_SEGMENTS; i++)
+        // Single continuous voxel ring
+        float vs = 0.15f;
+        VoxelData data = VoxelModels.CreateWallRing(WALL_RADIUS, vs);
+
+        Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
+
+        GameObject voxelGO = new GameObject("WallVoxels");
+        voxelGO.transform.SetParent(wallParent.transform);
+        voxelGO.transform.localPosition = offset;
+        voxelGO.AddComponent<MeshCollider>();
+        VoxelObject vo = voxelGO.AddComponent<VoxelObject>();
+        vo.Init(data, vs);
+
+        wall.RegisterSegment(vo);
+
+        // Torch lights around the ring
+        for (int i = 0; i < 8; i++)
         {
-            float angleDeg = i * arcStep;
-            float angleRad = angleDeg * Mathf.Deg2Rad;
+            float angle = i * 45f * Mathf.Deg2Rad;
+            Vector3 torchPos = new Vector3(
+                Mathf.Sin(angle) * WALL_RADIUS,
+                data.Height * vs + 0.1f,
+                Mathf.Cos(angle) * WALL_RADIUS);
 
-            Vector3 pos = TowerPos + new Vector3(
-                Mathf.Sin(angleRad) * WALL_RADIUS, 0f, Mathf.Cos(angleRad) * WALL_RADIUS);
-            Vector3 outDir = (pos - TowerPos).normalized;
-            outDir.y = 0;
-
-            VoxelData data = VoxelModels.CreateWall();
-            float vs = 0.12f;
-            Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
-
-            GameObject segGO = new GameObject("WallSeg_" + i);
-            segGO.transform.SetParent(wallParent.transform);
-            segGO.transform.position = pos;
-            if (outDir != Vector3.zero)
-                segGO.transform.forward = outDir;
-
-            GameObject voxelGO = new GameObject("WallVoxels");
-            voxelGO.transform.SetParent(segGO.transform);
-            voxelGO.transform.localPosition = offset;
-            VoxelObject vo = voxelGO.AddComponent<VoxelObject>();
-            vo.Init(data, vs);
-
-            BoxCollider col = segGO.AddComponent<BoxCollider>();
-            col.center = new Vector3(0, data.Height * vs * 0.5f, 0);
-            col.size = new Vector3(data.Width * vs, data.Height * vs, data.Depth * vs);
-
-            wall.RegisterSegment(vo);
-
-            // Torch on every 4th segment
-            if (i % 4 == 0)
-            {
-                GameObject lightObj = new GameObject("WallTorchLight");
-                lightObj.transform.SetParent(segGO.transform);
-                lightObj.transform.localPosition = new Vector3(0f, data.Height * vs + 0.1f, -0.25f);
-                Light light = lightObj.AddComponent<Light>();
-                light.type = LightType.Point;
-                light.color = new Color(1f, 0.65f, 0.3f);
-                light.range = 4f;
-                light.intensity = 1.2f;
-            }
+            GameObject lightObj = new GameObject("WallTorch_" + i);
+            lightObj.transform.SetParent(wallParent.transform);
+            lightObj.transform.localPosition = torchPos;
+            Light light = lightObj.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.65f, 0.3f);
+            light.range = 4f;
+            light.intensity = 1.2f;
         }
     }
 
@@ -137,31 +122,17 @@ public class BuildingSystem : MonoBehaviour
         headVO.Init(headData, vs);
 
         Defense def = parent.AddComponent<Defense>();
-        def.InitTowerMount(type, angle, height, turretLevel);
+        def.InitTowerMount(type, angle, height, 1);
 
         towerDefenses.Add(def);
         towerDefenseCount++;
     }
 
-    public void UpgradeAllTurrets()
+    public void UpgradeDefense(int index)
     {
-        if (turretLevel >= Defense.MAX_LEVEL) return;
-        if (towerDefenseCount == 0) return;
-
-        int cost = GetTurretUpgradeCost();
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
-            return;
-
-        turretLevel++;
-        foreach (var def in towerDefenses)
-        {
-            if (def != null)
-                def.SetLevel(turretLevel);
-        }
-    }
-
-    public int GetTurretUpgradeCost()
-    {
-        return 40 + turretLevel * 30;
+        if (index < 0 || index >= towerDefenses.Count) return;
+        Defense def = towerDefenses[index];
+        if (def != null)
+            def.Upgrade();
     }
 }

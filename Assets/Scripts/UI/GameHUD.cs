@@ -278,7 +278,8 @@ public class GameHUD : MonoBehaviour
         float px = 8;
         float py = 60;
         float pw = 200;
-        float ph = 540;
+        int defCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
+        float ph = 540 + defCount * 34;
 
         GUI.DrawTexture(new Rect(px, py, pw, ph), darkTex);
 
@@ -358,21 +359,27 @@ public class GameHUD : MonoBehaviour
                 Tower.Instance.UpgradeShield();
         }
 
-        // Turret upgrade
-        if (BuildingSystem.Instance != null && BuildingSystem.Instance.TowerDefenseCount > 0)
+        // Per-gun upgrades
+        if (BuildingSystem.Instance != null)
         {
-            int tLvl = BuildingSystem.Instance.TurretLevel;
-            if (tLvl < Defense.MAX_LEVEL)
+            var defs = BuildingSystem.Instance.Defenses;
+            for (int i = 0; i < defs.Count; i++)
             {
-                int tCost = BuildingSystem.Instance.GetTurretUpgradeCost();
-                if (GUI.Button(new Rect(px + 12, by + sp * 2, pw - 24, bh), $"Guns Lv{tLvl} ({tCost}g)", smallBtnStyle))
-                    BuildingSystem.Instance.UpgradeAllTurrets();
-            }
-            else
-            {
-                GUI.enabled = false;
-                GUI.Button(new Rect(px + 12, by + sp * 2, pw - 24, bh), $"Guns Lv{tLvl} (MAX)", smallBtnStyle);
-                GUI.enabled = true;
+                Defense d = defs[i];
+                if (d == null) continue;
+                float btnY = by + sp * (2 + i);
+                if (d.Level < Defense.MAX_LEVEL)
+                {
+                    string label = $"{d.Type} Lv{d.Level} ({d.GetUpgradeCost()}g)";
+                    if (GUI.Button(new Rect(px + 12, btnY, pw - 24, bh), label, smallBtnStyle))
+                        BuildingSystem.Instance.UpgradeDefense(i);
+                }
+                else
+                {
+                    GUI.enabled = false;
+                    GUI.Button(new Rect(px + 12, btnY, pw - 24, bh), $"{d.Type} Lv{d.Level} MAX", smallBtnStyle);
+                    GUI.enabled = true;
+                }
             }
         }
     }

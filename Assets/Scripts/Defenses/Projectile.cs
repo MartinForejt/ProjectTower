@@ -40,7 +40,7 @@ public class Projectile : MonoBehaviour
         switch (type)
         {
             case DefenseType.Gun: speed = 50f; break;
-            case DefenseType.Crossbow: speed = 35f; break;
+            case DefenseType.Crossbow: speed = 20f; break;
             case DefenseType.RocketLauncher: speed = 18f; aoeRadius = 3f; break;
             case DefenseType.PlasmaGun: speed = 12f; aoeRadius = 2.5f; break;
             default: speed = 30f; break;

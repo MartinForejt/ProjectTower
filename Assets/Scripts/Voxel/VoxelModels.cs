@@ -242,6 +242,66 @@ public static class VoxelModels
         return d;
     }
 
+    // ============ WALL RING (continuous circular wall) ============
+    public static VoxelData CreateWallRing(float radius, float vs)
+    {
+        int gridSize = Mathf.CeilToInt((radius * 2 + 2f) / vs);
+        if (gridSize % 2 != 0) gridSize++;
+        int wallH = 7;
+        int totalH = wallH + 3; // +3 for trim and crenellations
+        var d = new VoxelData(gridSize, totalH, gridSize);
+
+        Color stone = new Color(0.5f, 0.45f, 0.38f);
+        Color stoneD = new Color(0.42f, 0.38f, 0.32f);
+        Color stoneL = new Color(0.54f, 0.49f, 0.42f);
+        Color moss = new Color(0.18f, 0.28f, 0.12f);
+
+        float cx = gridSize * 0.5f;
+        float cz = gridSize * 0.5f;
+        float outerR = radius / vs;
+        float innerR = (radius - 0.5f) / vs;
+
+        for (int x = 0; x < gridSize; x++)
+        for (int z = 0; z < gridSize; z++)
+        {
+            float dx = x - cx + 0.5f;
+            float dz = z - cz + 0.5f;
+            float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+            if (dist < innerR || dist > outerR) continue;
+
+            // Main wall body
+            for (int y = 0; y < wallH; y++)
+            {
+                // Brick pattern: alternate color every other row
+                bool darkRow = (y % 2 == 0);
+                float angularPos = Mathf.Atan2(dz, dx);
+                int brickIdx = Mathf.FloorToInt((angularPos + Mathf.PI) * outerR * 0.5f);
+                bool darkBrick = darkRow ? (brickIdx % 3 == 0) : ((brickIdx + 1) % 3 == 0);
+                d.Voxels[x, y, z] = darkBrick ? stoneD : stone;
+            }
+
+            // Trim row
+            d.Voxels[x, wallH, z] = stoneD;
+
+            // Crenellations (merlons with gaps)
+            float angle = Mathf.Atan2(dz, dx) * Mathf.Rad2Deg + 180f;
+            int crenSlot = Mathf.FloorToInt(angle * outerR * Mathf.Deg2Rad / 1.5f);
+            if (crenSlot % 3 < 2)
+            {
+                d.Voxels[x, wallH + 1, z] = stoneL;
+                d.Voxels[x, wallH + 2, z] = stoneL;
+            }
+
+            // Moss at base
+            if (Random.value > 0.7f)
+                d.Voxels[x, 0, z] = moss;
+        }
+
+        ApplyVariation(d, 0.02f);
+        return d;
+    }
+
     // ============ ENEMY (12x20x8 normal, voxelSize 0.075) ============
     public static VoxelData CreateEnemy(bool isBoss, EnemyType type = EnemyType.Warrior)
     {

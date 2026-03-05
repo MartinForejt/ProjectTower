@@ -66,7 +66,7 @@ public class Defense : MonoBehaviour
                 recoilDistance = 0.1f; recoilDuration = 0.08f;
                 break;
             case DefenseType.Crossbow:
-                baseDamage = 15f; baseFireRate = 1.5f; baseRange = 28f; baseOrbitSpeed = 140f;
+                baseDamage = 35f; baseFireRate = 0.6f; baseRange = 28f; baseOrbitSpeed = 140f;
                 recoilDistance = 0.06f; recoilDuration = 0.15f;
                 break;
             case DefenseType.RocketLauncher:
@@ -422,6 +422,31 @@ public class Defense : MonoBehaviour
         mat.EnableKeyword("_EMISSION");
         mat.SetColor("_EmissionColor", color * intensity);
         return mat;
+    }
+
+    public int GetUpgradeCost()
+    {
+        int baseCost;
+        switch (defenseType)
+        {
+            case DefenseType.Gun: baseCost = 30; break;
+            case DefenseType.Crossbow: baseCost = 20; break;
+            case DefenseType.RocketLauncher: baseCost = 60; break;
+            case DefenseType.PlasmaGun: baseCost = 100; break;
+            default: baseCost = 30; break;
+        }
+        return Mathf.RoundToInt(baseCost * Mathf.Pow(1.4f, Level - 1));
+    }
+
+    public bool Upgrade()
+    {
+        if (Level >= MAX_LEVEL) return false;
+        int cost = GetUpgradeCost();
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
+            return false;
+        Level++;
+        ApplyLevelScaling();
+        return true;
     }
 
     public static int GetBuildCost(DefenseType type)
