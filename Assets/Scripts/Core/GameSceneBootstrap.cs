@@ -50,9 +50,9 @@ public class GameSceneBootstrap : MonoBehaviour
         ground.layer = LayerMask.NameToLayer("Default");
         ground.GetComponent<Renderer>().enabled = false;
 
-        // 3D voxel terrain (160x3x140 at vs=1.0, covers -80..+80 X, -70..+70 Z)
+        // 3D voxel terrain (320x4x280 at vs=0.5, covers -80..+80 X, -70..+70 Z)
         VoxelData terrain = VoxelModels.CreateGroundTerrain();
-        VoxelModels.Spawn(terrain, 1f, new Vector3(-80f, -1f, -70f), "VoxelTerrain");
+        VoxelModels.Spawn(terrain, 0.5f, new Vector3(-80f, -0.5f, -70f), "VoxelTerrain");
     }
 
     void CreateForest()

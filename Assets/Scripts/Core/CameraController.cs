@@ -4,13 +4,13 @@ using UnityEngine.InputSystem;
 public class CameraController : MonoBehaviour
 {
     [SerializeField] private float zoomSpeed = 5f;
-    [SerializeField] private float minDist = 60f;
-    [SerializeField] private float maxDist = 220f;
-    [SerializeField] private float cameraAngle = 50f;
+    [SerializeField] private float minDist = 80f;
+    [SerializeField] private float maxDist = 300f;
+    [SerializeField] private float cameraAngle = 62f;
 
     private Camera cam;
-    private float zoomLevel = 0.55f;
-    private Vector3 lookCenter = new Vector3(0f, 0f, 12f);
+    private float zoomLevel = 0.3f;
+    private Vector3 lookCenter = new Vector3(0f, 0f, 8f);
 
     void Start()
     {

@@ -663,15 +663,15 @@ public static class VoxelModels
     // ============ GROUND TERRAIN (160x3x140, voxelSize 1.0) ============
     public static VoxelData CreateGroundTerrain()
     {
-        int w = 160, h = 3, d = 140;
+        int w = 320, h = 4, d = 280;
         var data = new VoxelData(w, h, d);
         Color dirtBase = new Color(0.2f, 0.15f, 0.1f);
 
         for (int x = 0; x < w; x++)
         for (int z = 0; z < d; z++)
         {
-            float wx = x - 80f;
-            float wz = z - 70f;
+            float wx = x * 0.5f - 80f;
+            float wz = z * 0.5f - 70f;
 
             float n1 = Mathf.PerlinNoise(wx * 0.025f + 100f, wz * 0.025f + 100f);
             float n2 = Mathf.PerlinNoise(wx * 0.07f + 50f, wz * 0.07f + 50f) * 0.3f;
