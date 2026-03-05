@@ -30,7 +30,7 @@ public class EnemySpawner : MonoBehaviour
         position.y = 0f;
 
         VoxelData data = VoxelModels.CreateEnemy(isBoss);
-        float vs = 0.15f;
+        float vs = 0.075f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         string name = isBoss ? "BossEnemy" : "Enemy";

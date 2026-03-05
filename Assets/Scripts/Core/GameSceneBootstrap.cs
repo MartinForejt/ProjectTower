@@ -91,14 +91,14 @@ public class GameSceneBootstrap : MonoBehaviour
         {
             float x = Random.Range(-55f, 55f);
             float z = Random.Range(forestZ, forestZ + 30f);
-            VoxelModels.Spawn(VoxelModels.CreateTree(), 0.3f, new Vector3(x, 0f, z), "Tree");
+            VoxelModels.Spawn(VoxelModels.CreateTree(), 0.18f, new Vector3(x, 0f, z), "Tree");
         }
 
         for (int i = 0; i < 12; i++)
         {
             float x = Random.Range(-30f, 30f);
             float z = forestZ + Random.Range(-1f, 2f);
-            VoxelModels.Spawn(VoxelModels.CreateBush(), 0.2f, new Vector3(x, 0f, z), "Bush");
+            VoxelModels.Spawn(VoxelModels.CreateBush(), 0.1f, new Vector3(x, 0f, z), "Bush");
         }
 
         // Forest floor
@@ -117,7 +117,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         // Center the voxel model on TowerPos
         VoxelData data = VoxelModels.CreateTower();
-        float vs = 0.2f;
+        float vs = 0.1f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject tower = new GameObject("Tower");
@@ -174,7 +174,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         Vector3 minePos = TowerPos + new Vector3(6f, 0f, -2f);
         VoxelData data = VoxelModels.CreateMine();
-        float vs = 0.2f;
+        float vs = 0.1f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject mine = new GameObject("Mine_Starting");
@@ -195,7 +195,7 @@ public class GameSceneBootstrap : MonoBehaviour
         {
             float x = Random.Range(-40f, 40f);
             float z = Random.Range(-50f, 14f);
-            VoxelModels.Spawn(VoxelModels.CreateRock(), 0.2f, new Vector3(x, 0f, z), "Rock");
+            VoxelModels.Spawn(VoxelModels.CreateRock(), 0.1f, new Vector3(x, 0f, z), "Rock");
         }
     }
 

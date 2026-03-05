@@ -182,7 +182,7 @@ public class BuildingSystem : MonoBehaviour
     GameObject CreateWallObject(Vector3 pos, Vector3 forward, int index)
     {
         VoxelData data = VoxelModels.CreateWall();
-        float vs = 0.2f;
+        float vs = 0.1f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject wallParent = new GameObject("Wall_" + index);
@@ -373,7 +373,7 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
             return;
 
-        float vs = 0.15f;
+        float vs = 0.075f;
 
         GameObject parent = new GameObject(SelectedDefenseType + "Turret");
         parent.transform.position = position;
@@ -418,7 +418,7 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         VoxelData data = VoxelModels.CreateMine();
-        float vs = 0.2f;
+        float vs = 0.1f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject parent = new GameObject("Mine");

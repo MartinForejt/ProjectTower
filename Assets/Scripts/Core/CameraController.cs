@@ -5,7 +5,7 @@ public class CameraController : MonoBehaviour
 {
     [SerializeField] private float zoomSpeed = 8f;
     [SerializeField] private float minFov = 30f;
-    [SerializeField] private float maxFov = 90f;
+    [SerializeField] private float maxFov = 120f;
 
     private Camera cam;
 
@@ -14,11 +14,11 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        transform.position = new Vector3(0f, 60f, -40f);
+        transform.position = new Vector3(0f, 90f, -60f);
         transform.eulerAngles = new Vector3(50f, 0f, 0f);
 
         if (cam != null)
-            cam.fieldOfView = 80f;
+            cam.fieldOfView = 90f;
     }
 
     void Update()
