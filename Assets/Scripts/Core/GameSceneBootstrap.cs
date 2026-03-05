@@ -79,7 +79,7 @@ public class GameSceneBootstrap : MonoBehaviour
             float sz = Random.Range(2f, 6f);
             float g = Random.Range(0.25f, 0.38f);
             Color c = new Color(g * 0.6f, g, g * 0.3f);
-            GameObject p = GroundPlane("GrassLush", new Vector3(x, 0.003f, z),
+            GameObject p = GroundPlane("GrassLush", new Vector3(x, 0.02f, z),
                 new Vector3(sx, 1f, sz), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
@@ -93,7 +93,7 @@ public class GameSceneBootstrap : MonoBehaviour
             float sz = Random.Range(1.5f, 4f);
             float g = Random.Range(0.12f, 0.2f);
             Color c = new Color(g * 0.7f, g, g * 0.3f);
-            GameObject p = GroundPlane("GrassDark", new Vector3(x, 0.004f, z),
+            GameObject p = GroundPlane("GrassDark", new Vector3(x, 0.03f, z),
                 new Vector3(sx, 1f, sz), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
@@ -109,17 +109,17 @@ public class GameSceneBootstrap : MonoBehaviour
                 Random.Range(0.3f, 0.4f),
                 Random.Range(0.32f, 0.4f),
                 Random.Range(0.1f, 0.15f));
-            GameObject p = GroundPlane("GrassDry", new Vector3(x, 0.005f, z),
+            GameObject p = GroundPlane("GrassDry", new Vector3(x, 0.04f, z),
                 new Vector3(sx, 1f, sz), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
 
         // === SCORCHED / BATTLEFIELD EARTH ===
-        GroundPlane("ScorchedEarth", new Vector3(0f, 0.006f, 2f),
+        GroundPlane("ScorchedEarth", new Vector3(0f, 0.05f, 2f),
             new Vector3(8f, 1f, 5f), new Color(0.18f, 0.2f, 0.1f));
-        GroundPlane("ScorchedEarth2", new Vector3(-8f, 0.006f, -5f),
+        GroundPlane("ScorchedEarth2", new Vector3(-8f, 0.05f, -5f),
             new Vector3(4f, 1f, 3f), new Color(0.2f, 0.2f, 0.12f));
-        GroundPlane("ScorchedEarth3", new Vector3(10f, 0.006f, 0f),
+        GroundPlane("ScorchedEarth3", new Vector3(10f, 0.05f, 0f),
             new Vector3(3f, 1f, 4f), new Color(0.19f, 0.19f, 0.11f));
 
         // === DIRT / MUD PATCHES ===
@@ -131,7 +131,7 @@ public class GameSceneBootstrap : MonoBehaviour
             float sz = Random.Range(0.4f, 1.8f);
             float b = Random.Range(0.15f, 0.3f);
             Color c = new Color(b + 0.04f, b + 0.02f, b * 0.4f);
-            GameObject p = GroundPlane("DirtPatch", new Vector3(x, 0.008f, z),
+            GameObject p = GroundPlane("DirtPatch", new Vector3(x, 0.06f, z),
                 new Vector3(sx, 1f, sz), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
@@ -145,7 +145,7 @@ public class GameSceneBootstrap : MonoBehaviour
                 Random.Range(0.28f, 0.34f),
                 Random.Range(0.22f, 0.28f),
                 Random.Range(0.12f, 0.16f));
-            GameObject p = GroundPlane("Path", new Vector3(x, 0.007f, z),
+            GameObject p = GroundPlane("Path", new Vector3(x, 0.055f, z),
                 new Vector3(0.5f, 1f, 0.8f), pathC);
             p.transform.eulerAngles = new Vector3(0, Random.Range(-15, 15), 0);
         }
@@ -160,7 +160,7 @@ public class GameSceneBootstrap : MonoBehaviour
             float s = Random.Range(0.8f, 2f);
             float gr = Random.Range(0.32f, 0.42f);
             Color c = new Color(gr, gr * 0.95f, gr * 0.85f);
-            GameObject p = GroundPlane("Gravel", new Vector3(x, 0.009f, z),
+            GameObject p = GroundPlane("Gravel", new Vector3(x, 0.07f, z),
                 new Vector3(s, 1f, s), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
@@ -171,7 +171,7 @@ public class GameSceneBootstrap : MonoBehaviour
             float x = Random.Range(-30f, 30f);
             float z = Random.Range(-40f, 10f);
             float s = Random.Range(0.3f, 0.8f);
-            GroundPlane("Puddle", new Vector3(x, 0.01f, z),
+            GroundPlane("Puddle", new Vector3(x, 0.08f, z),
                 new Vector3(s, 1f, s * Random.Range(0.6f, 1.2f)),
                 new Color(0.06f, 0.1f, 0.18f), 0.7f);
         }
@@ -191,7 +191,7 @@ public class GameSceneBootstrap : MonoBehaviour
             // Skip near tower and near battlefield center
             if (Mathf.Abs(x) < 8f && z > -5f && z < 16f) continue;
             Color fc = flowerColors[Random.Range(0, flowerColors.Length)];
-            GroundPlane("Flowers", new Vector3(x, 0.012f, z),
+            GroundPlane("Flowers", new Vector3(x, 0.09f, z),
                 new Vector3(Random.Range(0.1f, 0.3f), 1f, Random.Range(0.1f, 0.3f)), fc);
         }
 
@@ -205,7 +205,7 @@ public class GameSceneBootstrap : MonoBehaviour
                 Random.Range(0.28f, 0.35f),
                 Random.Range(0.25f, 0.3f),
                 Random.Range(0.1f, 0.14f));
-            GameObject p = GroundPlane("DeadGrass", new Vector3(x, 0.005f, z),
+            GameObject p = GroundPlane("DeadGrass", new Vector3(x, 0.04f, z),
                 new Vector3(s, 1f, s), c);
             p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
         }
@@ -232,7 +232,7 @@ public class GameSceneBootstrap : MonoBehaviour
         // Forest floor
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
         floor.name = "ForestFloor";
-        floor.transform.position = new Vector3(0f, 0.015f, forestZ + 15f);
+        floor.transform.position = new Vector3(0f, 0.1f, forestZ + 15f);
         floor.transform.localScale = new Vector3(14f, 1f, 5f);
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.color = new Color(0.1f, 0.16f, 0.06f);
