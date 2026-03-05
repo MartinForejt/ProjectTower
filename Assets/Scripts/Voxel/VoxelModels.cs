@@ -660,165 +660,126 @@ public static class VoxelModels
         return d;
     }
 
-    // ============ GROUND TERRAIN (160x3x140, voxelSize 1.0) ============
+    // ============ GROUND TERRAIN (160x8x140, voxelSize 1.0) ============
     public static VoxelData CreateGroundTerrain()
     {
-        int w = 320, h = 4, d = 280;
+        int w = 160, h = 8, d = 140;
         var data = new VoxelData(w, h, d);
-        Color dirtBase = new Color(0.2f, 0.15f, 0.1f);
+
+        Color dirt = new Color(0.40f, 0.28f, 0.14f);
+        Color dirtD = new Color(0.32f, 0.22f, 0.10f);
+        Color stone = new Color(0.45f, 0.43f, 0.40f);
 
         for (int x = 0; x < w; x++)
         for (int z = 0; z < d; z++)
         {
-            float wx = x * 0.5f - 80f;
-            float wz = z * 0.5f - 70f;
+            float wx = x - 80f;
+            float wz = z - 70f;
 
-            float n1 = Mathf.PerlinNoise(wx * 0.025f + 100f, wz * 0.025f + 100f);
-            float n2 = Mathf.PerlinNoise(wx * 0.07f + 50f, wz * 0.07f + 50f) * 0.3f;
-            float noise = n1 + n2;
-
-            // Boundary noise for natural zone transitions
-            float bn = Mathf.PerlinNoise(wx * 0.12f + 800f, wz * 0.12f + 800f) * 8f - 4f;
+            // Height from Perlin noise — rolling hills
+            float h1 = Mathf.PerlinNoise(wx * 0.02f + 100f, wz * 0.02f + 100f);
+            float h2 = Mathf.PerlinNoise(wx * 0.06f + 50f, wz * 0.06f + 50f) * 0.35f;
+            float heightNoise = h1 + h2;
+            int surfaceH = 1 + Mathf.FloorToInt(heightNoise * 4f);
 
             float towerDist = Mathf.Sqrt(wx * wx + (wz - 18f) * (wz - 18f));
 
-            int surfaceH = 1;
-            if (noise > 0.95f && towerDist > 30f && (Mathf.Abs(wx) > 25f || wz + bn > 25f))
+            // Flatten near tower
+            if (towerDist < 10f)
                 surfaceH = 2;
+            else if (towerDist < 15f)
+                surfaceH = Mathf.Min(surfaceH, 3);
 
-            Color surface = GroundBiomeColor(wx, wz, noise, towerDist, bn);
+            surfaceH = Mathf.Clamp(surfaceH, 1, 6);
 
-            // Embedded stones
-            float stoneN = Mathf.PerlinNoise(wx * 0.3f + 600f, wz * 0.3f + 600f);
-            if (stoneN > 0.78f)
-            {
-                float g = 0.35f + noise * 0.08f;
-                surface = new Color(g, g * 0.95f, g * 0.9f);
-                if (towerDist > 25f) surfaceH = 2;
-            }
+            // Surface color by biome
+            Color surface = GroundBiomeColor(wx, wz, heightNoise, towerDist);
 
-            // Moss patches
-            float mossN = Mathf.PerlinNoise(wx * 0.25f + 700f, wz * 0.25f + 700f);
-            if (mossN > 0.8f && wz > -10f)
-                surface = new Color(0.08f + noise * 0.04f, 0.2f + noise * 0.06f, 0.05f);
-
-            // Puddle clusters
-            float puddleN = Mathf.PerlinNoise(wx * 0.15f + 400f, wz * 0.15f + 400f);
-            if (puddleN > 0.75f && wz > -30f && wz < 10f && towerDist > 8f)
-            {
-                surface = new Color(0.06f, 0.1f, 0.18f);
-                surfaceH = 1;
-            }
-
-            // Flower clusters
-            float flowerN = Mathf.PerlinNoise(wx * 0.2f + 500f, wz * 0.2f + 500f);
-            if (flowerN > 0.82f && wz > -20f && wz < 20f && towerDist > 10f)
-            {
-                Color[] flowers = {
-                    new Color(0.8f, 0.2f, 0.2f),
-                    new Color(0.9f, 0.8f, 0.2f),
-                    new Color(0.6f, 0.3f, 0.7f),
-                    new Color(0.9f, 0.5f, 0.2f)
-                };
-                int fi = (Mathf.Abs((int)wx) + Mathf.Abs((int)wz)) % flowers.Length;
-                surface = flowers[fi];
-            }
-
+            // Fill column
             for (int y = 0; y < surfaceH; y++)
-                data.Set(x, y, z, y == surfaceH - 1 ? surface : dirtBase);
+            {
+                if (y == surfaceH - 1)
+                    data.Set(x, y, z, surface);
+                else if (y == surfaceH - 2 && surfaceH > 2)
+                    data.Set(x, y, z, dirt);
+                else
+                    data.Set(x, y, z, y < 1 ? stone : dirtD);
+            }
         }
 
-        ApplyVariation(data, 0.015f);
+        ApplyVariation(data, 0.02f);
         return data;
     }
 
-    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist, float bn)
+    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist)
     {
-        // Secondary noise for within-biome color blending
-        float mix = Mathf.PerlinNoise(wx * 0.18f + 900f, wz * 0.18f + 900f);
+        // Vibrant voxel-style colors
+        Color grassBright = new Color(0.22f, 0.55f, 0.12f);
+        Color grassDark = new Color(0.14f, 0.38f, 0.08f);
+        Color grassYellow = new Color(0.45f, 0.50f, 0.15f);
+        Color dirtPath = new Color(0.48f, 0.35f, 0.18f);
+        Color gravel = new Color(0.48f, 0.45f, 0.40f);
+        Color forestFloor = new Color(0.10f, 0.25f, 0.06f);
+        Color scorched = new Color(0.22f, 0.18f, 0.12f);
+        Color sand = new Color(0.65f, 0.58f, 0.38f);
 
-        // Winding dirt path with soft edges
-        float pathX = Mathf.Sin(wz * 0.06f) * 4f + Mathf.Sin(wz * 0.15f) * 1.5f;
-        float distToPath = Mathf.Abs(wx - pathX);
-        if (distToPath < 1.2f && wz > -55f && wz < 15f)
-        {
-            Color pathA = new Color(0.32f + noise * 0.04f, 0.26f + noise * 0.04f, 0.15f);
-            Color pathB = new Color(0.28f + noise * 0.03f, 0.22f + noise * 0.03f, 0.13f);
-            return Color.Lerp(pathA, pathB, distToPath / 1.2f);
-        }
-        if (distToPath < 3f && wz > -55f && wz < 15f)
-        {
-            float edge = (distToPath - 1.2f) / 1.8f;
-            Color pathEdge = new Color(0.28f + noise * 0.03f, 0.24f + noise * 0.03f, 0.13f);
-            Color biome = GroundBaseBiome(wx, wz, noise, towerDist, bn, mix);
-            return Color.Lerp(pathEdge, biome, edge);
-        }
+        float bn = Mathf.PerlinNoise(wx * 0.1f + 800f, wz * 0.1f + 800f) * 6f - 3f;
+        float mix = Mathf.PerlinNoise(wx * 0.15f + 900f, wz * 0.15f + 900f);
 
-        return GroundBaseBiome(wx, wz, noise, towerDist, bn, mix);
-    }
-
-    static Color GroundBaseBiome(float wx, float wz, float noise, float towerDist, float bn, float mix)
-    {
-        // Gravel near tower
+        // Gravel ring around tower
         if (towerDist < 6f)
+            return Color.Lerp(gravel, dirtPath, mix);
+
+        // Stone patches
+        float stoneN = Mathf.PerlinNoise(wx * 0.2f + 600f, wz * 0.2f + 600f);
+        if (stoneN > 0.78f)
+            return Color.Lerp(new Color(0.50f, 0.48f, 0.44f), gravel, mix);
+
+        // Puddles
+        float puddleN = Mathf.PerlinNoise(wx * 0.12f + 400f, wz * 0.12f + 400f);
+        if (puddleN > 0.78f && towerDist > 8f)
+            return new Color(0.08f, 0.15f, 0.28f);
+
+        // Flower patches
+        float flowerN = Mathf.PerlinNoise(wx * 0.18f + 500f, wz * 0.18f + 500f);
+        if (flowerN > 0.82f && towerDist > 10f)
         {
-            float g = 0.32f + noise * 0.1f;
-            return Color.Lerp(
-                new Color(g, g * 0.9f, g * 0.8f),
-                new Color(g * 1.1f, g, g * 0.85f), mix);
+            Color[] flowers = {
+                new Color(0.85f, 0.20f, 0.20f),
+                new Color(0.90f, 0.80f, 0.15f),
+                new Color(0.65f, 0.25f, 0.70f),
+                new Color(0.95f, 0.55f, 0.15f)
+            };
+            return flowers[(Mathf.Abs((int)wx) + Mathf.Abs((int)wz)) % flowers.Length];
         }
 
-        // Forest floor (north) - wavy boundary
-        if (wz + bn > 22f)
-        {
-            Color a = new Color(0.06f + noise * 0.04f, 0.12f + noise * 0.06f, 0.04f);
-            Color b = new Color(0.1f + noise * 0.05f, 0.2f + noise * 0.08f, 0.06f);
-            return Color.Lerp(a, b, mix);
-        }
+        // Distance-based biome rings (circular around tower since 360 spawn)
+        if (towerDist < 12f)
+            return Color.Lerp(grassBright, grassDark, mix);
 
-        // Lush green near tower
-        if (wz + bn > 5f)
-        {
-            Color a = new Color(0.12f + noise * 0.06f, 0.26f + noise * 0.1f, 0.06f);
-            Color b = new Color(0.16f + noise * 0.05f, 0.22f + noise * 0.08f, 0.09f);
-            return Color.Lerp(a, b, mix);
-        }
+        if (towerDist + bn < 25f)
+            return Color.Lerp(grassBright, grassYellow, mix * 0.5f);
 
-        // Battlefield zone
-        if (wz + bn > -15f)
+        if (towerDist + bn < 40f)
         {
-            float bf = Mathf.PerlinNoise(wx * 0.1f + 200f, wz * 0.1f + 200f);
+            // Mid-field — mix of grass and scorched
+            float bf = Mathf.PerlinNoise(wx * 0.08f + 200f, wz * 0.08f + 200f);
             if (bf > 0.55f)
-            {
-                Color a = new Color(0.17f + noise * 0.03f, 0.17f + noise * 0.03f, 0.1f);
-                Color b = new Color(0.21f + noise * 0.03f, 0.19f + noise * 0.03f, 0.12f);
-                return Color.Lerp(a, b, mix);
-            }
-            Color ga = new Color(0.13f + noise * 0.06f, 0.22f + noise * 0.08f, 0.07f);
-            Color gb = new Color(0.17f + noise * 0.05f, 0.19f + noise * 0.07f, 0.09f);
-            return Color.Lerp(ga, gb, mix);
+                return Color.Lerp(scorched, grassDark, mix * 0.3f);
+            return Color.Lerp(grassDark, grassYellow, mix);
         }
 
-        // Mid-field dry grass and dirt
-        if (wz + bn > -45f)
+        if (towerDist + bn < 55f)
         {
-            float t = Mathf.PerlinNoise(wx * 0.08f + 300f, wz * 0.08f + 300f);
+            // Outer ring — dry and sandy
+            float t = Mathf.PerlinNoise(wx * 0.06f + 300f, wz * 0.06f + 300f);
             if (t > 0.5f)
-            {
-                Color a = new Color(0.28f + noise * 0.06f, 0.3f + noise * 0.06f, 0.12f);
-                Color b = new Color(0.32f + noise * 0.05f, 0.28f + noise * 0.05f, 0.14f);
-                return Color.Lerp(a, b, mix);
-            }
-            float bv = 0.18f + noise * 0.1f;
-            Color da = new Color(bv + 0.04f, bv + 0.02f, bv * 0.4f);
-            Color db = new Color(bv + 0.06f, bv + 0.03f, bv * 0.5f);
-            return Color.Lerp(da, db, mix);
+                return Color.Lerp(grassYellow, sand, mix * 0.5f);
+            return Color.Lerp(dirtPath, grassYellow, mix);
         }
 
-        // Far south spawn area
-        Color sa = new Color(0.23f + noise * 0.05f, 0.2f + noise * 0.04f, 0.11f);
-        Color sb = new Color(0.27f + noise * 0.04f, 0.24f + noise * 0.03f, 0.13f);
-        return Color.Lerp(sa, sb, mix);
+        // Far edges — forest / dark
+        return Color.Lerp(forestFloor, grassDark, mix);
     }
 
     // ============ HELPER: Spawn a VoxelObject from data ============

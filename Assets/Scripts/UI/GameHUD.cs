@@ -158,7 +158,7 @@ public class GameHUD : MonoBehaviour
         };
         tipStyle.normal.textColor = Color.yellow;
         GUI.Label(new Rect(centerX - 300, Screen.height - 130, 600, 30),
-            "Place your defenses before starting! Use the build menu on the left.", tipStyle);
+            "Buy tower guns and walls before starting!", tipStyle);
     }
 
     void DrawPlayingHUD()
@@ -243,7 +243,7 @@ public class GameHUD : MonoBehaviour
 
         GUIStyle sectionStyle = new GUIStyle(headerStyle) { fontSize = 14 };
 
-        GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 22), "DEFENSES", sectionStyle);
+        GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 22), "TOWER GUNS", sectionStyle);
 
         float btnY = panelY + 30;
         float btnH = 28;
@@ -251,19 +251,19 @@ public class GameHUD : MonoBehaviour
 
         if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
             $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceDefense(DefenseType.Gun);
+            BuildingSystem.Instance?.AddTowerDefense(DefenseType.Gun);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
             $"Crossbow ({Defense.GetBuildCost(DefenseType.Crossbow)}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceDefense(DefenseType.Crossbow);
+            BuildingSystem.Instance?.AddTowerDefense(DefenseType.Crossbow);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
             $"Rocket ({Defense.GetBuildCost(DefenseType.RocketLauncher)}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceDefense(DefenseType.RocketLauncher);
+            BuildingSystem.Instance?.AddTowerDefense(DefenseType.RocketLauncher);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 3, panelW - 20, btnH),
             $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceDefense(DefenseType.PlasmaGun);
+            BuildingSystem.Instance?.AddTowerDefense(DefenseType.PlasmaGun);
 
         btnY += spacing * 4 + 10;
         GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "STRUCTURES", sectionStyle);
@@ -315,7 +315,7 @@ public class GameHUD : MonoBehaviour
                 BuildingSystem.Instance.UpgradeAllWalls();
         }
 
-        // Build mode indicator
+        // Build mode indicator (mines only)
         if (BuildingSystem.Instance != null && BuildingSystem.Instance.CurrentMode != BuildMode.None)
         {
             GUIStyle modeStyle = new GUIStyle(labelStyle)

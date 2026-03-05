@@ -5,7 +5,6 @@ public class EnemySpawner : MonoBehaviour
     public static EnemySpawner Instance { get; private set; }
 
     [SerializeField] private float spawnRadius = 40f;
-    [SerializeField] private float spawnArcDegrees = 160f;
 
     private static readonly Vector3 TowerPos = new Vector3(0f, 0f, 18f);
 
@@ -56,8 +55,8 @@ public class EnemySpawner : MonoBehaviour
 
     Vector3 GetRandomSpawnPosition()
     {
-        float halfArc = spawnArcDegrees / 2f;
-        float angle = Random.Range(180f - halfArc, 180f + halfArc);
+        // 360 degree spawn around tower
+        float angle = Random.Range(0f, 360f);
         float rad = angle * Mathf.Deg2Rad;
 
         Vector3 offset = new Vector3(

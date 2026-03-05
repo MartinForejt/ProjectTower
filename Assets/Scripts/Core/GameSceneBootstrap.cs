@@ -50,27 +50,30 @@ public class GameSceneBootstrap : MonoBehaviour
         ground.layer = LayerMask.NameToLayer("Default");
         ground.GetComponent<Renderer>().enabled = false;
 
-        // 3D voxel terrain (320x4x280 at vs=0.5, covers -80..+80 X, -70..+70 Z)
+        // 3D voxel terrain (160x8x140 at vs=1.0, covers -80..+80 X, -70..+70 Z)
         VoxelData terrain = VoxelModels.CreateGroundTerrain();
-        VoxelModels.Spawn(terrain, 0.5f, new Vector3(-80f, -0.5f, -70f), "VoxelTerrain");
+        VoxelModels.Spawn(terrain, 1f, new Vector3(-80f, -1f, -70f), "VoxelTerrain");
     }
 
     void CreateForest()
     {
-        float forestZ = TowerPos.z + 4f;
-
-        for (int i = 0; i < 40; i++)
+        // Trees scattered in outer ring around tower
+        for (int i = 0; i < 50; i++)
         {
-            float x = Random.Range(-55f, 55f);
-            float z = Random.Range(forestZ, forestZ + 30f);
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float dist = Random.Range(35f, 60f);
+            float x = TowerPos.x + Mathf.Sin(angle) * dist;
+            float z = TowerPos.z + Mathf.Cos(angle) * dist;
             VoxelModels.Spawn(VoxelModels.CreateTree(), 0.18f, new Vector3(x, 0f, z), "Tree");
         }
 
-        // 5x bushes spread across the map
-        for (int i = 0; i < 60; i++)
+        // Bushes spread around the map
+        for (int i = 0; i < 80; i++)
         {
-            float x = Random.Range(-50f, 50f);
-            float z = Random.Range(-30f, forestZ + 5f);
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float dist = Random.Range(8f, 55f);
+            float x = TowerPos.x + Mathf.Sin(angle) * dist;
+            float z = TowerPos.z + Mathf.Cos(angle) * dist;
             VoxelModels.Spawn(VoxelModels.CreateBush(), 0.1f, new Vector3(x, 0f, z), "Bush");
         }
     }
@@ -169,11 +172,13 @@ public class GameSceneBootstrap : MonoBehaviour
 
     void CreateBattlefieldDecor()
     {
-        // 5x rocks across the battlefield
-        for (int i = 0; i < 100; i++)
+        // Rocks scattered around the battlefield in a ring
+        for (int i = 0; i < 120; i++)
         {
-            float x = Random.Range(-60f, 60f);
-            float z = Random.Range(-60f, 20f);
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float dist = Random.Range(5f, 60f);
+            float x = TowerPos.x + Mathf.Sin(angle) * dist;
+            float z = TowerPos.z + Mathf.Cos(angle) * dist;
             VoxelModels.Spawn(VoxelModels.CreateRock(), 0.1f, new Vector3(x, 0f, z), "Rock");
         }
     }

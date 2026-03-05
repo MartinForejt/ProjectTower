@@ -4,7 +4,6 @@ using UnityEngine.InputSystem;
 public enum BuildMode
 {
     None,
-    PlaceDefense,
     PlaceMine
 }
 
@@ -13,7 +12,6 @@ public class BuildingSystem : MonoBehaviour
     public static BuildingSystem Instance { get; private set; }
 
     public BuildMode CurrentMode { get; private set; }
-    public DefenseType SelectedDefenseType { get; private set; }
 
     private const float GUI_PANEL_WIDTH = 195f;
     private const float GUI_TOP_BAR_HEIGHT = 50f;
@@ -24,9 +22,7 @@ public class BuildingSystem : MonoBehaviour
     // Wall system
     private static readonly Vector3 TowerPos = new Vector3(0f, 0f, 18f);
     private const float WALL_RADIUS = 4.5f;
-    private const float ARC_START = -80f;
-    private const float ARC_END = 80f;
-    private const int MAX_WALL_SLOTS = 9;
+    private const int MAX_WALL_SLOTS = 12;
 
     private float[] slotAngles;
     private int[] slotFillOrder;
@@ -37,6 +33,9 @@ public class BuildingSystem : MonoBehaviour
     public int WallCount => wallCount;
     public int WallMaxSlots => MAX_WALL_SLOTS;
     public int WallLevel => wallLevel;
+
+    // Tower-mounted defenses
+    private int towerDefenseCount;
 
     public event System.Action<BuildMode> OnBuildModeChanged;
 
@@ -54,24 +53,14 @@ public class BuildingSystem : MonoBehaviour
 
     void InitWallSlots()
     {
+        // Full 360 degree wall coverage
         slotAngles = new float[MAX_WALL_SLOTS];
-        float arcStep = (ARC_END - ARC_START) / (MAX_WALL_SLOTS - 1);
+        float arcStep = 360f / MAX_WALL_SLOTS;
         for (int i = 0; i < MAX_WALL_SLOTS; i++)
-            slotAngles[i] = ARC_START + i * arcStep;
+            slotAngles[i] = i * arcStep;
 
-        // Fill order: center first, then alternating outward
-        slotFillOrder = new int[MAX_WALL_SLOTS];
-        int center = MAX_WALL_SLOTS / 2;
-        slotFillOrder[0] = center;
-        for (int i = 1; i <= center; i++)
-        {
-            int idx = i * 2 - 1;
-            if (idx < MAX_WALL_SLOTS)
-                slotFillOrder[idx] = center + i;
-            idx = i * 2;
-            if (idx < MAX_WALL_SLOTS)
-                slotFillOrder[idx] = center - i;
-        }
+        // Fill order: front first (facing south), then sides, then back
+        slotFillOrder = new int[] { 6, 5, 7, 4, 8, 3, 9, 2, 10, 1, 11, 0 };
 
         walls = new Wall[MAX_WALL_SLOTS];
         wallCount = 0;
@@ -140,7 +129,7 @@ public class BuildingSystem : MonoBehaviour
         return pos;
     }
 
-    // ============ WALL AUTO-PLACEMENT ============
+    // ============ WALL AUTO-PLACEMENT (360 degree) ============
 
     public void AutoPlaceWall()
     {
@@ -162,10 +151,10 @@ public class BuildingSystem : MonoBehaviour
         if (slotIndex < 0) return;
 
         float angleDeg = slotAngles[slotIndex];
-        float angleRad = (angleDeg + 270f) * Mathf.Deg2Rad;
+        float angleRad = angleDeg * Mathf.Deg2Rad;
 
         Vector3 pos = TowerPos + new Vector3(
-            Mathf.Cos(angleRad) * WALL_RADIUS, 0f, Mathf.Sin(angleRad) * WALL_RADIUS);
+            Mathf.Sin(angleRad) * WALL_RADIUS, 0f, Mathf.Cos(angleRad) * WALL_RADIUS);
         Vector3 outDir = (pos - TowerPos).normalized;
         outDir.y = 0;
 
@@ -190,7 +179,6 @@ public class BuildingSystem : MonoBehaviour
         if (forward != Vector3.zero)
             wallParent.transform.forward = forward;
 
-        // Voxel wall with box collider for enemy raycast detection
         GameObject voxelGO = new GameObject("WallVoxels");
         voxelGO.transform.SetParent(wallParent.transform);
         voxelGO.transform.localPosition = offset;
@@ -201,8 +189,7 @@ public class BuildingSystem : MonoBehaviour
         col.center = new Vector3(0, data.Height * vs * 0.5f, 0);
         col.size = new Vector3(data.Width * vs, data.Height * vs, data.Depth * vs);
 
-        // Torch on every other wall
-        if (index % 2 == 0)
+        if (index % 3 == 0)
         {
             GameObject lightObj = new GameObject("WallTorchLight");
             lightObj.transform.SetParent(wallParent.transform);
@@ -244,21 +231,41 @@ public class BuildingSystem : MonoBehaviour
         }
     }
 
-    // ============ DEFENSE / MINE PLACEMENT ============
+    // ============ TOWER-MOUNTED DEFENSES ============
 
-    public void StartPlaceDefense(DefenseType type)
+    public void AddTowerDefense(DefenseType type)
     {
-        CancelBuild();
         int cost = Defense.GetBuildCost(type);
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.CanAfford(cost))
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
             return;
 
-        SelectedDefenseType = type;
-        CurrentMode = BuildMode.PlaceDefense;
-        waitForMouseUp = true;
-        CreateDefensePreview(type);
-        OnBuildModeChanged?.Invoke(CurrentMode);
+        float vs = 0.075f;
+        float height = 1.5f + towerDefenseCount * 0.7f;
+        float angle = towerDefenseCount * 137.5f; // golden angle for even spread
+
+        GameObject parent = new GameObject(type + "Defense");
+
+        // Voxel head (the gun)
+        VoxelData headData = VoxelModels.CreateDefenseHead(type);
+        Vector3 headOffset = new Vector3(-headData.Width * vs * 0.5f, 0, -headData.Depth * vs * 0.5f);
+
+        GameObject headPivot = new GameObject("TurretHead");
+        headPivot.transform.SetParent(parent.transform);
+        headPivot.transform.localPosition = Vector3.zero;
+
+        GameObject headGO = new GameObject("HeadVoxels");
+        headGO.transform.SetParent(headPivot.transform);
+        headGO.transform.localPosition = headOffset;
+        VoxelObject headVO = headGO.AddComponent<VoxelObject>();
+        headVO.Init(headData, vs);
+
+        Defense def = parent.AddComponent<Defense>();
+        def.InitTowerMount(type, angle, height);
+
+        towerDefenseCount++;
     }
+
+    // ============ MINE PLACEMENT ============
 
     public void StartPlaceMine()
     {
@@ -275,13 +282,9 @@ public class BuildingSystem : MonoBehaviour
     void TryPlace(Vector3 position)
     {
         if (Vector3.Distance(position, TowerPos) < 3f) return;
-        if (position.z > TowerPos.z + 3f) return;
 
-        switch (CurrentMode)
-        {
-            case BuildMode.PlaceDefense: PlaceDefense(position); break;
-            case BuildMode.PlaceMine: PlaceMine(position); break;
-        }
+        if (CurrentMode == BuildMode.PlaceMine)
+            PlaceMine(position);
     }
 
     Material MakePreviewMat(Color color)
@@ -299,60 +302,6 @@ public class BuildingSystem : MonoBehaviour
         }
         mat.color = color;
         return mat;
-    }
-
-    // ============ PREVIEW CREATION ============
-
-    void CreateDefensePreview(DefenseType type)
-    {
-        Color previewColor = new Color(0.2f, 1f, 0.3f);
-        previewObject = new GameObject("BuildPreview");
-
-        // Base
-        GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        pedestal.transform.SetParent(previewObject.transform);
-        pedestal.transform.localPosition = new Vector3(0f, 0.25f, 0f);
-        pedestal.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
-        pedestal.GetComponent<Collider>().enabled = false;
-        pedestal.GetComponent<Renderer>().material = MakePreviewMat(previewColor);
-
-        // Head
-        GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        head.transform.SetParent(previewObject.transform);
-        head.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        head.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-        head.GetComponent<Collider>().enabled = false;
-        head.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.8f);
-
-        // Barrel
-        GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        barrel.transform.SetParent(previewObject.transform);
-        barrel.transform.localPosition = new Vector3(0f, 0.7f, 0.35f);
-        barrel.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
-        barrel.transform.localScale = new Vector3(0.1f, 0.3f, 0.1f);
-        barrel.GetComponent<Collider>().enabled = false;
-        barrel.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.6f);
-
-        // Range indicator
-        float rangeSize = GetDefenseRange(type) * 2f;
-        GameObject range = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        range.transform.SetParent(previewObject.transform);
-        range.transform.localPosition = new Vector3(0f, 0.01f, 0f);
-        range.transform.localScale = new Vector3(rangeSize, 0.005f, rangeSize);
-        range.GetComponent<Collider>().enabled = false;
-        range.GetComponent<Renderer>().material = MakePreviewMat(new Color(0.2f, 1f, 0.3f, 0.12f));
-    }
-
-    float GetDefenseRange(DefenseType type)
-    {
-        switch (type)
-        {
-            case DefenseType.Gun: return 12f;
-            case DefenseType.Crossbow: return 20f;
-            case DefenseType.RocketLauncher: return 22f;
-            case DefenseType.PlasmaGun: return 16f;
-            default: return 15f;
-        }
     }
 
     void CreateMinePreview()
@@ -373,53 +322,6 @@ public class BuildingSystem : MonoBehaviour
         roof.transform.localScale = new Vector3(1.5f, 0.15f, 1.5f);
         roof.GetComponent<Collider>().enabled = false;
         roof.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.7f);
-    }
-
-    // ============ PLACEMENT ============
-
-    void PlaceDefense(Vector3 position)
-    {
-        int cost = Defense.GetBuildCost(SelectedDefenseType);
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
-            return;
-
-        float vs = 0.075f;
-
-        GameObject parent = new GameObject(SelectedDefenseType + "Turret");
-        parent.transform.position = position;
-
-        // Voxel base
-        VoxelData baseData = VoxelModels.CreateDefenseBase();
-        Vector3 baseOffset = new Vector3(-baseData.Width * vs * 0.5f, 0, -baseData.Depth * vs * 0.5f);
-        GameObject baseGO = new GameObject("TurretBase");
-        baseGO.transform.SetParent(parent.transform);
-        baseGO.transform.localPosition = baseOffset;
-        VoxelObject baseVO = baseGO.AddComponent<VoxelObject>();
-        baseVO.Init(baseData, vs);
-
-        // Voxel head (rotates to face enemies)
-        VoxelData headData = VoxelModels.CreateDefenseHead(SelectedDefenseType);
-        Vector3 headOffset = new Vector3(-headData.Width * vs * 0.5f, 0, -headData.Depth * vs * 0.5f);
-
-        GameObject headPivot = new GameObject("TurretHead");
-        headPivot.transform.SetParent(parent.transform);
-        headPivot.transform.localPosition = new Vector3(0f, baseData.Height * vs, 0f);
-
-        GameObject headGO = new GameObject("HeadVoxels");
-        headGO.transform.SetParent(headPivot.transform);
-        headGO.transform.localPosition = headOffset;
-        VoxelObject headVO = headGO.AddComponent<VoxelObject>();
-        headVO.Init(headData, vs);
-
-        // Collider
-        BoxCollider col = parent.AddComponent<BoxCollider>();
-        float totalH = (baseData.Height + headData.Height) * vs;
-        col.center = new Vector3(0, totalH * 0.5f, 0);
-        col.size = new Vector3(baseData.Width * vs, totalH, Mathf.Max(baseData.Depth, headData.Depth) * vs);
-
-        Defense def = parent.AddComponent<Defense>();
-        def.SetDefenseType(SelectedDefenseType);
-        CancelBuild();
     }
 
     void PlaceMine(Vector3 position)

@@ -30,10 +30,20 @@ public class Defense : MonoBehaviour
     private float recoilDuration = 0.12f;
     private float recoilDistance = 0.15f;
 
-    public void SetDefenseType(DefenseType type)
+    // Tower orbit
+    private static readonly Vector3 TowerCenter = new Vector3(0f, 0f, 18f);
+    private float orbitRadius = 1.8f;
+    private float orbitAngle;
+    private float orbitHeight;
+    private float orbitSpeed = 120f;
+
+    public void InitTowerMount(DefenseType type, float startAngle, float height)
     {
         defenseType = type;
         ApplyTypeStats();
+        orbitAngle = startAngle;
+        orbitHeight = height;
+        UpdateOrbitPosition();
     }
 
     void ApplyTypeStats()
@@ -41,19 +51,19 @@ public class Defense : MonoBehaviour
         switch (defenseType)
         {
             case DefenseType.Gun:
-                damage = 8f; fireRate = 3.5f; range = 12f; upgradeCost = 40;
+                damage = 8f; fireRate = 3.5f; range = 18f; upgradeCost = 40;
                 recoilDistance = 0.1f; recoilDuration = 0.08f;
                 break;
             case DefenseType.Crossbow:
-                damage = 18f; fireRate = 1.2f; range = 20f; upgradeCost = 35;
+                damage = 18f; fireRate = 1.2f; range = 28f; upgradeCost = 35;
                 recoilDistance = 0.06f; recoilDuration = 0.15f;
                 break;
             case DefenseType.RocketLauncher:
-                damage = 50f; fireRate = 0.4f; range = 22f; upgradeCost = 80;
+                damage = 50f; fireRate = 0.4f; range = 30f; upgradeCost = 80;
                 recoilDistance = 0.2f; recoilDuration = 0.2f;
                 break;
             case DefenseType.PlasmaGun:
-                damage = 30f; fireRate = 1.8f; range = 16f; upgradeCost = 100;
+                damage = 30f; fireRate = 1.8f; range = 22f; upgradeCost = 100;
                 recoilDistance = 0.12f; recoilDuration = 0.1f;
                 break;
         }
@@ -92,14 +102,31 @@ public class Defense : MonoBehaviour
         if (currentTarget == null || !IsTargetInRange(currentTarget))
             FindTarget();
 
-        if (currentTarget != null && fireCooldown <= 0f)
-        {
-            Fire();
-            fireCooldown = 1f / fireRate;
-        }
-
         if (currentTarget != null)
+        {
+            // Orbit toward target
+            Vector3 toTarget = currentTarget.position - TowerCenter;
+            float targetAngle = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+            orbitAngle = Mathf.MoveTowardsAngle(orbitAngle, targetAngle, orbitSpeed * Time.deltaTime);
+            UpdateOrbitPosition();
+
             LookAtTarget();
+
+            if (fireCooldown <= 0f)
+            {
+                Fire();
+                fireCooldown = 1f / fireRate;
+            }
+        }
+    }
+
+    void UpdateOrbitPosition()
+    {
+        float rad = orbitAngle * Mathf.Deg2Rad;
+        transform.position = TowerCenter + new Vector3(
+            Mathf.Sin(rad) * orbitRadius,
+            orbitHeight,
+            Mathf.Cos(rad) * orbitRadius);
     }
 
     protected virtual void FindTarget()
@@ -113,12 +140,6 @@ public class Defense : MonoBehaviour
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null && !enemy.IsDead)
             {
-                if (Camera.main != null)
-                {
-                    Vector3 vp = Camera.main.WorldToViewportPoint(hit.transform.position);
-                    if (vp.x < -0.05f || vp.x > 1.05f || vp.y < -0.05f || vp.y > 1.05f || vp.z < 0)
-                        continue;
-                }
                 float dist = Vector3.Distance(transform.position, hit.transform.position);
                 if (dist < closestDist)
                 {
