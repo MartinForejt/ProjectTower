@@ -25,6 +25,12 @@ public class Defense : MonoBehaviour
     private Transform headTransform;
     private Transform barrelTransform;
 
+    // Recoil
+    private Vector3 barrelOriginalLocalPos;
+    private float recoilTimer;
+    private float recoilDuration = 0.12f;
+    private float recoilDistance = 0.15f;
+
     public void SetDefenseType(DefenseType type)
     {
         defenseType = type;
@@ -37,27 +43,32 @@ public class Defense : MonoBehaviour
         {
             case DefenseType.Gun:
                 damage = 8f; fireRate = 3.5f; range = 12f; upgradeCost = 40;
+                recoilDistance = 0.1f; recoilDuration = 0.08f;
                 break;
             case DefenseType.Crossbow:
                 damage = 18f; fireRate = 1.2f; range = 20f; upgradeCost = 35;
+                recoilDistance = 0.06f; recoilDuration = 0.15f;
                 break;
             case DefenseType.RocketLauncher:
                 damage = 50f; fireRate = 0.4f; range = 22f; upgradeCost = 80;
+                recoilDistance = 0.2f; recoilDuration = 0.2f;
                 break;
             case DefenseType.PlasmaGun:
                 damage = 30f; fireRate = 1.8f; range = 16f; upgradeCost = 100;
+                recoilDistance = 0.12f; recoilDuration = 0.1f;
                 break;
         }
     }
 
     void Start()
     {
-        // Find the head/barrel for aiming (tagged by name during creation)
         foreach (Transform child in GetComponentsInChildren<Transform>())
         {
             if (child.name == "TurretHead") headTransform = child;
             if (child.name == "TurretBarrel") barrelTransform = child;
         }
+        if (barrelTransform != null)
+            barrelOriginalLocalPos = barrelTransform.localPosition;
     }
 
     void Update()
@@ -66,6 +77,18 @@ public class Defense : MonoBehaviour
             return;
 
         fireCooldown -= Time.deltaTime;
+
+        // Recoil recovery
+        if (recoilTimer > 0 && barrelTransform != null)
+        {
+            recoilTimer -= Time.deltaTime;
+            float t = Mathf.Clamp01(1f - recoilTimer / recoilDuration);
+            // Ease out: fast kick, slow return
+            float recoilT = t < 0.3f ? (1f - t / 0.3f) : ((t - 0.3f) / 0.7f - 1f) * -0f;
+            // Simple: interpolate back
+            float offset = Mathf.Lerp(recoilDistance, 0f, t * t);
+            barrelTransform.localPosition = barrelOriginalLocalPos + Vector3.forward * -offset;
+        }
 
         if (currentTarget == null || !IsTargetInRange(currentTarget))
             FindTarget();
@@ -91,7 +114,6 @@ public class Defense : MonoBehaviour
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null && !enemy.IsDead)
             {
-                // Don't target enemies off-screen
                 if (Camera.main != null)
                 {
                     Vector3 vp = Camera.main.WorldToViewportPoint(hit.transform.position);
@@ -124,7 +146,6 @@ public class Defense : MonoBehaviour
 
         Quaternion lookRot = Quaternion.LookRotation(dir);
 
-        // Rotate head smoothly if we have one, otherwise rotate whole turret
         if (headTransform != null)
             headTransform.rotation = Quaternion.Slerp(headTransform.rotation, lookRot, Time.deltaTime * 8f);
         else
@@ -139,15 +160,29 @@ public class Defense : MonoBehaviour
             ? barrelTransform.position + barrelTransform.forward * 0.3f
             : transform.position + Vector3.up * 0.7f + transform.forward * 0.35f;
 
+        // Recoil kick
+        recoilTimer = recoilDuration;
+        if (barrelTransform != null)
+            barrelTransform.localPosition = barrelOriginalLocalPos + Vector3.forward * -recoilDistance;
+
+        // Spawn projectile
         GameObject projObj = new GameObject("Projectile_" + defenseType);
         projObj.transform.position = spawnPos;
         Projectile p = projObj.AddComponent<Projectile>();
         p.Init(currentTarget, damage, defenseType);
 
-        // Muzzle flash
+        // Muzzle flash + sparks
         SpawnMuzzleFlash(spawnPos);
+        SpawnMuzzleSparks(spawnPos);
 
-        // Sound
+        // Shell casing for gun
+        if (defenseType == DefenseType.Gun)
+            SpawnShellCasing(spawnPos);
+
+        // Smoke puff for rocket
+        if (defenseType == DefenseType.RocketLauncher)
+            SpawnSmokePuff(spawnPos, 0.4f);
+
         if (SoundManager.Instance != null)
             SoundManager.Instance.PlayDefenseShot(defenseType, spawnPos);
     }
@@ -159,27 +194,118 @@ public class Defense : MonoBehaviour
         switch (defenseType)
         {
             case DefenseType.Gun:
-                flashColor = new Color(1f, 0.9f, 0.3f); flashSize = 0.15f; break;
+                flashColor = new Color(1f, 0.9f, 0.3f); flashSize = 0.18f; break;
             case DefenseType.Crossbow:
-                return; // No flash for crossbow
+                return;
             case DefenseType.RocketLauncher:
-                flashColor = new Color(1f, 0.5f, 0.1f); flashSize = 0.3f; break;
+                flashColor = new Color(1f, 0.5f, 0.1f); flashSize = 0.35f; break;
             case DefenseType.PlasmaGun:
-                flashColor = new Color(0.3f, 0.5f, 1f); flashSize = 0.25f; break;
+                flashColor = new Color(0.3f, 0.5f, 1f); flashSize = 0.3f; break;
             default:
                 flashColor = Color.yellow; flashSize = 0.15f; break;
         }
 
+        // Main flash
         GameObject flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         flash.transform.position = pos;
         flash.transform.localScale = Vector3.one * flashSize;
         Destroy(flash.GetComponent<Collider>());
-        Material m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        m.color = flashColor;
-        m.EnableKeyword("_EMISSION");
-        m.SetColor("_EmissionColor", flashColor * 5f);
+        Material m = MakeGlowMat(flashColor, 6f);
         flash.GetComponent<Renderer>().material = m;
         Destroy(flash, 0.08f);
+
+        // Secondary flash (larger, dimmer)
+        GameObject flash2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        flash2.transform.position = pos;
+        flash2.transform.localScale = Vector3.one * flashSize * 1.8f;
+        Destroy(flash2.GetComponent<Collider>());
+        flash2.GetComponent<Renderer>().material = MakeGlowMat(flashColor * 0.5f, 3f);
+        Destroy(flash2, 0.05f);
+    }
+
+    void SpawnMuzzleSparks(Vector3 pos)
+    {
+        if (defenseType == DefenseType.Crossbow) return;
+
+        Vector3 forward = barrelTransform != null ? barrelTransform.forward : transform.forward;
+        int sparkCount = defenseType == DefenseType.RocketLauncher ? 8 : 4;
+        Color sparkColor = defenseType == DefenseType.PlasmaGun
+            ? new Color(0.4f, 0.6f, 1f)
+            : new Color(1f, 0.8f, 0.2f);
+
+        for (int i = 0; i < sparkCount; i++)
+        {
+            GameObject spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            spark.transform.position = pos;
+            spark.transform.localScale = Vector3.one * Random.Range(0.02f, 0.05f);
+            Destroy(spark.GetComponent<Collider>());
+            spark.GetComponent<Renderer>().material = MakeGlowMat(sparkColor, 4f);
+
+            Rigidbody rb = spark.AddComponent<Rigidbody>();
+            rb.mass = 0.01f;
+            rb.useGravity = true;
+            Vector3 dir = forward + Random.insideUnitSphere * 0.5f;
+            rb.linearVelocity = dir.normalized * Random.Range(3f, 8f);
+
+            Destroy(spark, Random.Range(0.1f, 0.3f));
+        }
+    }
+
+    void SpawnShellCasing(Vector3 pos)
+    {
+        GameObject casing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        casing.transform.position = pos;
+        casing.transform.localScale = new Vector3(0.02f, 0.03f, 0.02f);
+        Destroy(casing.GetComponent<Collider>());
+
+        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        mat.color = new Color(0.85f, 0.7f, 0.2f);
+        mat.SetFloat("_Metallic", 0.9f);
+        mat.SetFloat("_Smoothness", 0.6f);
+        casing.GetComponent<Renderer>().material = mat;
+
+        Rigidbody rb = casing.AddComponent<Rigidbody>();
+        rb.mass = 0.005f;
+        Vector3 right = barrelTransform != null ? barrelTransform.right : transform.right;
+        rb.linearVelocity = (right + Vector3.up * 0.5f) * Random.Range(2f, 4f);
+        rb.angularVelocity = Random.insideUnitSphere * 20f;
+
+        Destroy(casing, Random.Range(0.5f, 1f));
+    }
+
+    void SpawnSmokePuff(Vector3 pos, float size)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            smoke.transform.position = pos + Random.insideUnitSphere * 0.15f;
+            float s = size * Random.Range(0.6f, 1.2f);
+            smoke.transform.localScale = Vector3.one * s;
+            Destroy(smoke.GetComponent<Collider>());
+            float g = Random.Range(0.4f, 0.6f);
+            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.color = new Color(g, g, g, 0.7f);
+            mat.SetFloat("_Smoothness", 0f);
+            smoke.GetComponent<Renderer>().material = mat;
+
+            Rigidbody rb = smoke.AddComponent<Rigidbody>();
+            rb.mass = 0.01f;
+            rb.useGravity = false;
+            rb.linearDamping = 3f;
+            rb.linearVelocity = Vector3.up * Random.Range(0.5f, 1.5f) + Random.insideUnitSphere * 0.3f;
+
+            Destroy(smoke, Random.Range(0.3f, 0.6f));
+        }
+    }
+
+    Material MakeGlowMat(Color color, float intensity)
+    {
+        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        mat.color = color;
+        mat.SetFloat("_Smoothness", 0.12f);
+        mat.EnableKeyword("_EMISSION");
+        mat.SetColor("_EmissionColor", color * intensity);
+        return mat;
     }
 
     public virtual void Upgrade()

@@ -14,12 +14,12 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        // Overview: tower visible in upper area, full battlefield below
-        transform.position = new Vector3(0f, 60f, -30f);
+        // Tower in upper screen (~80%), zoomed out to see full battlefield
+        transform.position = new Vector3(0f, 65f, -50f);
         transform.eulerAngles = new Vector3(50f, 0f, 0f);
 
         if (cam != null)
-            cam.fieldOfView = 70f;
+            cam.fieldOfView = 78f;
     }
 
     void Update()

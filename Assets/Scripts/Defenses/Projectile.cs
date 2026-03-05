@@ -8,6 +8,7 @@ public class Projectile : MonoBehaviour
     private Vector3 lastKnownPos;
     private DefenseType projectileType;
     private float aoeRadius;
+    private float smokeTimer;
 
     public void Init(Transform target, float damage, DefenseType type)
     {
@@ -59,7 +60,6 @@ public class Projectile : MonoBehaviour
 
     void CreateBullet()
     {
-        // Bright tracer round
         GameObject core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         core.transform.SetParent(transform);
         core.transform.localPosition = Vector3.zero;
@@ -67,7 +67,6 @@ public class Projectile : MonoBehaviour
         Destroy(core.GetComponent<Collider>());
         core.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.95f, 0.4f), 4f);
 
-        // Tracer trail
         GameObject trail = GameObject.CreatePrimitive(PrimitiveType.Cube);
         trail.transform.SetParent(transform);
         trail.transform.localPosition = new Vector3(0f, 0f, -0.12f);
@@ -78,7 +77,6 @@ public class Projectile : MonoBehaviour
 
     void CreateBolt()
     {
-        // Wooden shaft
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         shaft.transform.SetParent(transform);
         shaft.transform.localPosition = Vector3.zero;
@@ -87,7 +85,6 @@ public class Projectile : MonoBehaviour
         Destroy(shaft.GetComponent<Collider>());
         shaft.GetComponent<Renderer>().material = MakeLitMat(new Color(0.55f, 0.35f, 0.15f));
 
-        // Metal tip
         GameObject tip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         tip.transform.SetParent(transform);
         tip.transform.localPosition = new Vector3(0f, 0f, 0.3f);
@@ -95,7 +92,6 @@ public class Projectile : MonoBehaviour
         Destroy(tip.GetComponent<Collider>());
         tip.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.7f, 0.7f, 0.75f), 1.5f);
 
-        // Fletching
         for (int i = 0; i < 3; i++)
         {
             float angle = i * 120f * Mathf.Deg2Rad;
@@ -111,7 +107,6 @@ public class Projectile : MonoBehaviour
 
     void CreateRocket()
     {
-        // Rocket body
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         body.transform.SetParent(transform);
         body.transform.localPosition = Vector3.zero;
@@ -120,7 +115,6 @@ public class Projectile : MonoBehaviour
         Destroy(body.GetComponent<Collider>());
         body.GetComponent<Renderer>().material = MakeLitMat(new Color(0.35f, 0.42f, 0.3f));
 
-        // Warhead
         GameObject nose = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         nose.transform.SetParent(transform);
         nose.transform.localPosition = new Vector3(0f, 0f, 0.22f);
@@ -128,7 +122,6 @@ public class Projectile : MonoBehaviour
         Destroy(nose.GetComponent<Collider>());
         nose.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.85f, 0.2f, 0.1f), 2f);
 
-        // Fins
         for (int i = 0; i < 4; i++)
         {
             float angle = i * 90f * Mathf.Deg2Rad;
@@ -141,26 +134,16 @@ public class Projectile : MonoBehaviour
             fin.GetComponent<Renderer>().material = MakeLitMat(new Color(0.3f, 0.35f, 0.28f));
         }
 
-        // Exhaust flame
         GameObject exhaust = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         exhaust.transform.SetParent(transform);
         exhaust.transform.localPosition = new Vector3(0f, 0f, -0.3f);
         exhaust.transform.localScale = new Vector3(0.15f, 0.15f, 0.25f);
         Destroy(exhaust.GetComponent<Collider>());
         exhaust.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.5f, 0.1f), 6f);
-
-        // Smoke trail
-        GameObject smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        smoke.transform.SetParent(transform);
-        smoke.transform.localPosition = new Vector3(0f, 0f, -0.5f);
-        smoke.transform.localScale = new Vector3(0.2f, 0.2f, 0.3f);
-        Destroy(smoke.GetComponent<Collider>());
-        smoke.GetComponent<Renderer>().material = MakeLitMat(new Color(0.5f, 0.5f, 0.5f));
     }
 
     void CreatePlasma()
     {
-        // Glowing core
         GameObject core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         core.transform.SetParent(transform);
         core.transform.localPosition = Vector3.zero;
@@ -168,7 +151,6 @@ public class Projectile : MonoBehaviour
         Destroy(core.GetComponent<Collider>());
         core.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.2f, 0.4f, 1f), 6f);
 
-        // Outer plasma shell
         GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         shell.transform.SetParent(transform);
         shell.transform.localPosition = Vector3.zero;
@@ -176,7 +158,6 @@ public class Projectile : MonoBehaviour
         Destroy(shell.GetComponent<Collider>());
         shell.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.4f, 0.6f, 1f), 3f);
 
-        // Electric arcs (small stretched cubes)
         for (int i = 0; i < 4; i++)
         {
             float angle = i * 90f * Mathf.Deg2Rad + Random.Range(0f, 0.5f);
@@ -209,17 +190,59 @@ public class Projectile : MonoBehaviour
         if (dir != Vector3.zero)
             transform.rotation = Quaternion.LookRotation(dir);
 
-        if (Vector3.Distance(transform.position, targetPos) < 0.5f)
+        // Rocket smoke trail
+        if (projectileType == DefenseType.RocketLauncher)
         {
-            HitTarget();
+            smokeTimer -= Time.deltaTime;
+            if (smokeTimer <= 0f)
+            {
+                SpawnSmokeTrail();
+                smokeTimer = 0.04f;
+            }
         }
+
+        // Plasma trail sparks
+        if (projectileType == DefenseType.PlasmaGun)
+        {
+            smokeTimer -= Time.deltaTime;
+            if (smokeTimer <= 0f)
+            {
+                SpawnPlasmaTrail();
+                smokeTimer = 0.06f;
+            }
+        }
+
+        if (Vector3.Distance(transform.position, targetPos) < 0.5f)
+            HitTarget();
+    }
+
+    void SpawnSmokeTrail()
+    {
+        GameObject smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        smoke.transform.position = transform.position - transform.forward * 0.3f;
+        float s = Random.Range(0.08f, 0.15f);
+        smoke.transform.localScale = Vector3.one * s;
+        Destroy(smoke.GetComponent<Collider>());
+        float g = Random.Range(0.35f, 0.55f);
+        smoke.GetComponent<Renderer>().material = MakeLitMat(new Color(g, g, g));
+        Destroy(smoke, Random.Range(0.2f, 0.5f));
+    }
+
+    void SpawnPlasmaTrail()
+    {
+        GameObject spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        spark.transform.position = transform.position + Random.insideUnitSphere * 0.1f;
+        spark.transform.localScale = Vector3.one * Random.Range(0.02f, 0.04f);
+        spark.transform.eulerAngles = Random.insideUnitSphere * 360f;
+        Destroy(spark.GetComponent<Collider>());
+        spark.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.4f, 0.6f, 1f), 5f);
+        Destroy(spark, Random.Range(0.1f, 0.2f));
     }
 
     void HitTarget()
     {
         if (aoeRadius > 0)
         {
-            // AOE damage (rockets, plasma)
             Collider[] hits = Physics.OverlapSphere(transform.position, aoeRadius);
             foreach (var h in hits)
             {
@@ -235,7 +258,6 @@ public class Projectile : MonoBehaviour
         }
         else
         {
-            // Single target
             if (target != null)
             {
                 Enemy e = target.GetComponent<Enemy>();
@@ -249,15 +271,53 @@ public class Projectile : MonoBehaviour
 
     void SpawnHitSpark()
     {
-        GameObject spark = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        spark.transform.position = transform.position;
-        spark.transform.localScale = Vector3.one * 0.2f;
-        Destroy(spark.GetComponent<Collider>());
         Color c = projectileType == DefenseType.Gun
             ? new Color(1f, 0.9f, 0.3f)
             : new Color(0.8f, 0.6f, 0.3f);
+
+        // Main spark flash
+        GameObject spark = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        spark.transform.position = transform.position;
+        spark.transform.localScale = Vector3.one * 0.25f;
+        Destroy(spark.GetComponent<Collider>());
         spark.GetComponent<Renderer>().material = MakeGlowMat(c, 5f);
         Destroy(spark, 0.1f);
+
+        // Spark particles flying out
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject particle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            particle.transform.position = transform.position;
+            particle.transform.localScale = Vector3.one * Random.Range(0.015f, 0.035f);
+            Destroy(particle.GetComponent<Collider>());
+            particle.GetComponent<Renderer>().material = MakeGlowMat(c, 4f);
+
+            Rigidbody rb = particle.AddComponent<Rigidbody>();
+            rb.mass = 0.005f;
+            rb.useGravity = true;
+            rb.linearVelocity = Random.insideUnitSphere * Random.Range(2f, 6f) + Vector3.up * 2f;
+
+            Destroy(particle, Random.Range(0.15f, 0.35f));
+        }
+
+        // Blood spray if crossbow bolt
+        if (projectileType == DefenseType.Crossbow)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                GameObject blood = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                blood.transform.position = transform.position;
+                blood.transform.localScale = Vector3.one * Random.Range(0.03f, 0.06f);
+                Destroy(blood.GetComponent<Collider>());
+                blood.GetComponent<Renderer>().material = MakeLitMat(new Color(0.5f, 0.02f, 0.02f));
+
+                Rigidbody rb = blood.AddComponent<Rigidbody>();
+                rb.mass = 0.01f;
+                rb.linearVelocity = Random.insideUnitSphere * Random.Range(1f, 3f) + Vector3.up * 1.5f;
+
+                Destroy(blood, Random.Range(0.3f, 0.6f));
+            }
+        }
     }
 
     void SpawnExplosion()
@@ -265,40 +325,100 @@ public class Projectile : MonoBehaviour
         if (SoundManager.Instance != null)
             SoundManager.Instance.PlayExplosion(transform.position);
 
-        Color c = projectileType == DefenseType.RocketLauncher
-            ? new Color(1f, 0.4f, 0.1f)
-            : new Color(0.3f, 0.5f, 1f);
-        float size = projectileType == DefenseType.RocketLauncher ? 1.2f : 0.8f;
+        bool isRocket = projectileType == DefenseType.RocketLauncher;
+        Color c = isRocket ? new Color(1f, 0.4f, 0.1f) : new Color(0.3f, 0.5f, 1f);
+        float size = isRocket ? 1.4f : 0.9f;
 
         // Fireball core
         GameObject explosion = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         explosion.transform.position = transform.position;
         explosion.transform.localScale = Vector3.one * size;
         Destroy(explosion.GetComponent<Collider>());
-        explosion.GetComponent<Renderer>().material = MakeGlowMat(c, 6f);
+        explosion.GetComponent<Renderer>().material = MakeGlowMat(c, 8f);
+
+        // Inner bright core
+        GameObject innerCore = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        innerCore.transform.position = transform.position;
+        innerCore.transform.localScale = Vector3.one * size * 0.5f;
+        Destroy(innerCore.GetComponent<Collider>());
+        innerCore.GetComponent<Renderer>().material = MakeGlowMat(Color.white, 10f);
 
         // Shockwave ring
         GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         ring.transform.position = transform.position;
-        ring.transform.localScale = new Vector3(size * 2f, 0.02f, size * 2f);
+        ring.transform.localScale = new Vector3(size * 2.5f, 0.02f, size * 2.5f);
         Destroy(ring.GetComponent<Collider>());
         ring.GetComponent<Renderer>().material = MakeGlowMat(c * 0.7f, 3f);
 
+        // Fire particles
+        for (int i = 0; i < 8; i++)
+        {
+            GameObject fire = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            fire.transform.position = transform.position;
+            float fs = Random.Range(0.1f, 0.25f);
+            fire.transform.localScale = Vector3.one * fs;
+            Destroy(fire.GetComponent<Collider>());
+            Color fc = Color.Lerp(c, new Color(1f, 0.9f, 0.2f), Random.value);
+            fire.GetComponent<Renderer>().material = MakeGlowMat(fc, 5f);
+
+            Rigidbody rb = fire.AddComponent<Rigidbody>();
+            rb.mass = 0.02f;
+            rb.useGravity = false;
+            rb.linearDamping = 3f;
+            rb.linearVelocity = Random.insideUnitSphere * Random.Range(3f, 8f) + Vector3.up * Random.Range(2f, 5f);
+
+            Destroy(fire, Random.Range(0.15f, 0.4f));
+        }
+
         // Debris chunks
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 8; i++)
         {
             GameObject chunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
             chunk.transform.position = transform.position;
-            chunk.transform.localScale = Vector3.one * Random.Range(0.05f, 0.12f);
+            chunk.transform.localScale = Vector3.one * Random.Range(0.04f, 0.12f);
+            chunk.transform.eulerAngles = Random.insideUnitSphere * 360f;
             Destroy(chunk.GetComponent<Collider>());
-            chunk.GetComponent<Renderer>().material = MakeGlowMat(c * 0.5f, 2f);
+            chunk.GetComponent<Renderer>().material = MakeLitMat(
+                new Color(Random.Range(0.2f, 0.4f), Random.Range(0.15f, 0.3f), Random.Range(0.1f, 0.2f)));
+
             Rigidbody rb = chunk.AddComponent<Rigidbody>();
             rb.mass = 0.05f;
-            rb.AddExplosionForce(Random.Range(5f, 12f), transform.position, 2f, 1f, ForceMode.Impulse);
-            Destroy(chunk, Random.Range(0.3f, 0.8f));
+            rb.AddExplosionForce(Random.Range(6f, 14f), transform.position, 3f, 1.5f, ForceMode.Impulse);
+            rb.angularVelocity = Random.insideUnitSphere * 15f;
+
+            Destroy(chunk, Random.Range(0.4f, 1f));
         }
 
-        Destroy(explosion, 0.2f);
-        Destroy(ring, 0.15f);
+        // Smoke cloud
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject smoke = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            smoke.transform.position = transform.position + Random.insideUnitSphere * 0.3f;
+            float ss = Random.Range(0.3f, 0.6f);
+            smoke.transform.localScale = Vector3.one * ss;
+            Destroy(smoke.GetComponent<Collider>());
+            float g = Random.Range(0.25f, 0.45f);
+            smoke.GetComponent<Renderer>().material = MakeLitMat(new Color(g, g, g));
+
+            Rigidbody rb = smoke.AddComponent<Rigidbody>();
+            rb.mass = 0.01f;
+            rb.useGravity = false;
+            rb.linearDamping = 2f;
+            rb.linearVelocity = Vector3.up * Random.Range(1f, 3f) + Random.insideUnitSphere * 1f;
+
+            Destroy(smoke, Random.Range(0.4f, 0.8f));
+        }
+
+        // Ground scorch mark
+        GameObject scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        scorch.transform.position = new Vector3(transform.position.x, 0.02f, transform.position.z);
+        scorch.transform.localScale = new Vector3(size * 1.5f, 0.003f, size * 1.5f);
+        Destroy(scorch.GetComponent<Collider>());
+        scorch.GetComponent<Renderer>().material = MakeLitMat(new Color(0.08f, 0.06f, 0.04f));
+        Destroy(scorch, 5f);
+
+        Destroy(explosion, 0.25f);
+        Destroy(innerCore, 0.12f);
+        Destroy(ring, 0.18f);
     }
 }
