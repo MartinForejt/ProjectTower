@@ -3,6 +3,8 @@ using UnityEngine;
 public class SoundManager : MonoBehaviour
 {
     public static SoundManager Instance { get; private set; }
+    public static float MasterVolume = 1f;
+    public static float SFXVolume = 1f;
 
     private AudioClip gunShot;
     private AudioClip crossbowFire;
@@ -107,6 +109,6 @@ public class SoundManager : MonoBehaviour
     void Play(AudioClip clip, Vector3 pos, float volume)
     {
         if (clip != null)
-            AudioSource.PlayClipAtPoint(clip, pos, volume);
+            AudioSource.PlayClipAtPoint(clip, pos, volume * MasterVolume * SFXVolume);
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 public enum GameState
@@ -28,6 +29,17 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+    }
+
+    void Update()
+    {
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            if (CurrentState == GameState.Playing)
+                PauseGame();
+            else if (CurrentState == GameState.Paused)
+                ResumeGame();
+        }
     }
 
     public void ChangeState(GameState newState)
