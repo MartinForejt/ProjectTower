@@ -25,9 +25,8 @@ public class Enemy : MonoBehaviour
     private float fireballTimer;
     private float fireballInterval = 5f;
 
-    // Damage flash
-    private Renderer[] renderers;
-    private Color[] originalColors;
+    // Voxel reference
+    private VoxelObject voxelObject;
     private float flashTimer;
 
     public void Init(float difficultyMultiplier, bool isBoss)
@@ -40,7 +39,7 @@ public class Enemy : MonoBehaviour
             moveSpeed *= 0.6f;
             attackDamage *= 3f;
             coinReward *= 10;
-            transform.localScale = Vector3.one * 2f;
+            // Boss voxel model is already 2x size, no scale needed
 
             HasMagicShield = Random.value > 0.4f;
             canSpawnMinions = Random.value > 0.5f;
@@ -58,11 +57,7 @@ public class Enemy : MonoBehaviour
         if (Tower.Instance != null)
             target = Tower.Instance.transform;
 
-        // Cache renderers for damage flash
-        renderers = GetComponentsInChildren<Renderer>();
-        originalColors = new Color[renderers.Length];
-        for (int i = 0; i < renderers.Length; i++)
-            originalColors[i] = renderers[i].material.color;
+        voxelObject = GetComponentInChildren<VoxelObject>();
     }
 
     void Update()
@@ -92,7 +87,6 @@ public class Enemy : MonoBehaviour
             Vector3 dir = (target.position - transform.position).normalized;
             dir.y = 0;
 
-            // Raycast to detect walls ahead
             RaycastHit hit;
             if (Physics.Raycast(transform.position + Vector3.up * 0.4f, dir, out hit, 1.5f))
             {
@@ -107,7 +101,6 @@ public class Enemy : MonoBehaviour
 
             currentWallTarget = null;
 
-            // Move toward tower
             transform.position += dir * moveSpeed * Time.deltaTime;
             if (dir != Vector3.zero)
                 transform.rotation = Quaternion.LookRotation(dir);
@@ -219,7 +212,14 @@ public class Enemy : MonoBehaviour
 
         Health -= damage;
 
-        // Flash red on hit
+        // Chip voxels on hit
+        if (voxelObject != null)
+        {
+            Vector3 hitPoint = transform.position + Random.insideUnitSphere * 0.3f;
+            hitPoint.y = Mathf.Max(0.1f, hitPoint.y);
+            voxelObject.DamageAt(hitPoint, 0.2f);
+        }
+
         FlashDamage();
 
         if (SoundManager.Instance != null)
@@ -231,22 +231,22 @@ public class Enemy : MonoBehaviour
 
     void FlashDamage()
     {
-        if (renderers == null) return;
-        for (int i = 0; i < renderers.Length; i++)
+        if (voxelObject != null)
         {
-            if (renderers[i] != null)
-                renderers[i].material.color = Color.red;
+            Renderer r = voxelObject.GetComponent<Renderer>();
+            if (r != null)
+                r.material.color = Color.red;
         }
         flashTimer = 0.1f;
     }
 
     void RestoreColors()
     {
-        if (renderers == null || originalColors == null) return;
-        for (int i = 0; i < renderers.Length; i++)
+        if (voxelObject != null)
         {
-            if (renderers[i] != null && i < originalColors.Length)
-                renderers[i].material.color = originalColors[i];
+            Renderer r = voxelObject.GetComponent<Renderer>();
+            if (r != null)
+                r.material.color = Color.white;
         }
     }
 
@@ -258,46 +258,16 @@ public class Enemy : MonoBehaviour
         if (WaveManager.Instance != null)
             WaveManager.Instance.OnEnemyDied();
 
-        SpawnGibs();
+        // Voxel explosion
+        if (voxelObject != null)
+            voxelObject.Explode(IsBoss ? 15f : 8f);
+
         SpawnBloodPool();
 
         if (SoundManager.Instance != null)
             SoundManager.Instance.PlayEnemyDeath(transform.position);
 
-        Destroy(gameObject);
-    }
-
-    void SpawnGibs()
-    {
-        Renderer[] rends = GetComponentsInChildren<Renderer>();
-        foreach (Renderer r in rends)
-        {
-            GameObject gib = r.gameObject;
-            gib.transform.SetParent(null);
-
-            if (gib.GetComponent<Collider>() == null)
-            {
-                SphereCollider sc = gib.AddComponent<SphereCollider>();
-                sc.radius = 0.2f;
-            }
-            else
-            {
-                gib.GetComponent<Collider>().enabled = true;
-            }
-
-            Rigidbody rb = gib.AddComponent<Rigidbody>();
-            rb.mass = Random.Range(0.1f, 0.4f);
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-
-            Vector3 center = transform.position + Vector3.down * 0.3f;
-            rb.AddExplosionForce(Random.Range(6f, 18f), center, 3f, 2f, ForceMode.Impulse);
-            rb.AddTorque(Random.insideUnitSphere * Random.Range(5f, 20f), ForceMode.Impulse);
-
-            Material gibMat = r.material;
-            gibMat.color = Color.Lerp(gibMat.color, new Color(0.5f, 0.02f, 0.02f), Random.Range(0.15f, 0.5f));
-
-            Destroy(gib, Random.Range(2f, 4f));
-        }
+        Destroy(gameObject, 0.1f);
     }
 
     void SpawnBloodPool()

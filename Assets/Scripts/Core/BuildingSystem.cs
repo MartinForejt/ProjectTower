@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections.Generic;
 
 public enum BuildMode
 {
@@ -182,67 +181,32 @@ public class BuildingSystem : MonoBehaviour
 
     GameObject CreateWallObject(Vector3 pos, Vector3 forward, int index)
     {
-        Color wallStone = new Color(0.5f, 0.45f, 0.38f);
-        Color wallStoneDark = new Color(0.42f, 0.38f, 0.32f);
-        Color wallTrim = new Color(0.45f, 0.4f, 0.33f);
+        VoxelData data = VoxelModels.CreateWall();
+        float vs = 0.2f;
+        Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject wallParent = new GameObject("Wall_" + index);
         wallParent.transform.position = pos;
         if (forward != Vector3.zero)
             wallParent.transform.forward = forward;
 
-        // Wall base
-        AddDecor(wallParent, PrimitiveType.Cube,
-            new Vector3(0f, 0.1f, 0f), new Vector3(2.3f, 0.2f, 0.5f), wallStoneDark);
+        // Voxel wall with box collider for enemy raycast detection
+        GameObject voxelGO = new GameObject("WallVoxels");
+        voxelGO.transform.SetParent(wallParent.transform);
+        voxelGO.transform.localPosition = offset;
+        VoxelObject vo = voxelGO.AddComponent<VoxelObject>();
+        vo.Init(data, vs);
 
-        // Main wall body (keeps collider for enemy raycast)
-        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.transform.SetParent(wallParent.transform);
-        body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
-        body.name = "WallBody";
-        body.GetComponent<Renderer>().material = MakeMat(wallStone);
-
-        // Stone texture lines
-        for (int row = 0; row < 3; row++)
-        {
-            AddDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(0f, 0.3f + row * 0.35f, -0.21f),
-                new Vector3(2.22f, 0.02f, 0.01f), wallStoneDark * 0.8f);
-        }
-
-        // Top trim
-        AddDecor(wallParent, PrimitiveType.Cube,
-            new Vector3(0f, 1.35f, 0f), new Vector3(2.3f, 0.1f, 0.45f), wallTrim);
-
-        // Crenellations
-        for (int c = -1; c <= 1; c++)
-        {
-            AddDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(c * 0.7f, 1.6f, 0f), new Vector3(0.4f, 0.4f, 0.5f), wallTrim);
-        }
-
-        // Arrow slit
-        AddDecor(wallParent, PrimitiveType.Cube,
-            new Vector3(0f, 0.7f, -0.21f), new Vector3(0.06f, 0.22f, 0.02f), new Color(0.08f, 0.08f, 0.1f));
-
-        // Inner walkway
-        AddDecor(wallParent, PrimitiveType.Cube,
-            new Vector3(0f, 0.9f, 0.28f), new Vector3(2f, 0.06f, 0.3f), wallStoneDark);
+        BoxCollider col = wallParent.AddComponent<BoxCollider>();
+        col.center = new Vector3(0, data.Height * vs * 0.5f, 0);
+        col.size = new Vector3(data.Width * vs, data.Height * vs, data.Depth * vs);
 
         // Torch on every other wall
         if (index % 2 == 0)
         {
-            AddDecor(wallParent, PrimitiveType.Cylinder,
-                new Vector3(0f, 1.1f, -0.25f), new Vector3(0.05f, 0.2f, 0.05f), new Color(0.3f, 0.2f, 0.1f));
-
-            GameObject flame = AddDecor(wallParent, PrimitiveType.Sphere,
-                new Vector3(0f, 1.4f, -0.25f), new Vector3(0.1f, 0.15f, 0.1f), new Color(1f, 0.6f, 0.1f));
-            flame.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.6f, 0.1f), 4f);
-
             GameObject lightObj = new GameObject("WallTorchLight");
             lightObj.transform.SetParent(wallParent.transform);
-            lightObj.transform.localPosition = new Vector3(0f, 1.5f, -0.25f);
+            lightObj.transform.localPosition = new Vector3(0f, data.Height * vs + 0.1f, -0.25f);
             Light light = lightObj.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.65f, 0.3f);
@@ -318,30 +282,6 @@ public class BuildingSystem : MonoBehaviour
             case BuildMode.PlaceDefense: PlaceDefense(position); break;
             case BuildMode.PlaceMine: PlaceMine(position); break;
         }
-    }
-
-    Material MakeMat(Color color)
-    {
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.color = color;
-        mat.SetFloat("_Smoothness", 0.12f);
-        return mat;
-    }
-
-    Material MakeMetalMat(Color color)
-    {
-        Material mat = MakeMat(color);
-        mat.SetFloat("_Metallic", 0.75f);
-        mat.SetFloat("_Smoothness", 0.4f);
-        return mat;
-    }
-
-    Material MakeGlowMat(Color color, float intensity)
-    {
-        Material mat = MakeMat(color);
-        mat.EnableKeyword("_EMISSION");
-        mat.SetColor("_EmissionColor", color * intensity);
-        return mat;
     }
 
     Material MakePreviewMat(Color color)
@@ -433,110 +373,43 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
             return;
 
-        Color col = GetDefenseColor(SelectedDefenseType);
-        Color accentCol = GetDefenseAccent(SelectedDefenseType);
+        float vs = 0.15f;
 
         GameObject parent = new GameObject(SelectedDefenseType + "Turret");
         parent.transform.position = position;
 
-        // Stone pedestal with base
-        AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.05f, 0f),
-            new Vector3(0.7f, 0.1f, 0.7f), new Color(0.35f, 0.33f, 0.28f));
+        // Voxel base
+        VoxelData baseData = VoxelModels.CreateDefenseBase();
+        Vector3 baseOffset = new Vector3(-baseData.Width * vs * 0.5f, 0, -baseData.Depth * vs * 0.5f);
+        GameObject baseGO = new GameObject("TurretBase");
+        baseGO.transform.SetParent(parent.transform);
+        baseGO.transform.localPosition = baseOffset;
+        VoxelObject baseVO = baseGO.AddComponent<VoxelObject>();
+        baseVO.Init(baseData, vs);
 
-        GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        pedestal.transform.SetParent(parent.transform);
-        pedestal.transform.localPosition = new Vector3(0f, 0.3f, 0f);
-        pedestal.transform.localScale = new Vector3(0.55f, 0.5f, 0.55f);
-        pedestal.GetComponent<Renderer>().material = MakeMetalMat(new Color(0.4f, 0.38f, 0.33f));
+        // Voxel head (rotates to face enemies)
+        VoxelData headData = VoxelModels.CreateDefenseHead(SelectedDefenseType);
+        Vector3 headOffset = new Vector3(-headData.Width * vs * 0.5f, 0, -headData.Depth * vs * 0.5f);
 
-        // Ring detail on pedestal
-        AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f),
-            new Vector3(0.58f, 0.04f, 0.58f), new Color(0.35f, 0.32f, 0.28f));
+        GameObject headPivot = new GameObject("TurretHead");
+        headPivot.transform.SetParent(parent.transform);
+        headPivot.transform.localPosition = new Vector3(0f, baseData.Height * vs, 0f);
 
-        // Turret head
-        GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        head.transform.SetParent(parent.transform);
-        head.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        head.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
-        head.name = "TurretHead";
-        head.GetComponent<Renderer>().material = MakeMat(col);
-        Destroy(head.GetComponent<Collider>());
+        GameObject headGO = new GameObject("HeadVoxels");
+        headGO.transform.SetParent(headPivot.transform);
+        headGO.transform.localPosition = headOffset;
+        VoxelObject headVO = headGO.AddComponent<VoxelObject>();
+        headVO.Init(headData, vs);
 
-        // Defense-type-specific details
-        switch (SelectedDefenseType)
-        {
-            case DefenseType.Gun:
-                AddBarrel(parent, new Vector3(0f, 0.7f, 0.35f), new Vector3(0.08f, 0.35f, 0.08f), col * 0.5f);
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(0.3f, 0.15f, 0f),
-                    new Vector3(0.18f, 0.12f, 0.15f), new Color(0.3f, 0.3f, 0.25f));
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.82f, 0.1f),
-                    new Vector3(0.02f, 0.08f, 0.02f), new Color(0.2f, 0.2f, 0.2f));
-                break;
-
-            case DefenseType.Crossbow:
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.15f),
-                    new Vector3(0.5f, 0.04f, 0.06f), new Color(0.4f, 0.28f, 0.12f));
-                AddBarrel(parent, new Vector3(0f, 0.7f, 0.25f), new Vector3(0.04f, 0.2f, 0.04f), col * 0.6f);
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.08f),
-                    new Vector3(0.48f, 0.01f, 0.01f), new Color(0.8f, 0.75f, 0.6f));
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.25f, 0.15f, 0f),
-                    new Vector3(0.1f, 0.2f, 0.1f), new Color(0.4f, 0.3f, 0.15f));
-                break;
-
-            case DefenseType.RocketLauncher:
-                for (int i = 0; i < 2; i++)
-                {
-                    float side = (i == 0) ? -0.1f : 0.1f;
-                    AddBarrel(parent, new Vector3(side, 0.7f, 0.3f), new Vector3(0.1f, 0.25f, 0.1f), col * 0.5f);
-                    AddDecor(parent, PrimitiveType.Cylinder, new Vector3(side, 0.7f, -0.05f),
-                        new Vector3(0.12f, 0.02f, 0.12f), new Color(0.25f, 0.25f, 0.2f));
-                }
-                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.88f, 0f),
-                    new Vector3(0.12f, 0.06f, 0.08f), accentCol);
-                break;
-
-            case DefenseType.PlasmaGun:
-                AddBarrel(parent, new Vector3(0f, 0.7f, 0.3f), new Vector3(0.12f, 0.22f, 0.12f), col * 0.5f);
-                GameObject core = AddDecor(parent, PrimitiveType.Sphere, new Vector3(0f, 0.7f, 0.18f),
-                    new Vector3(0.1f, 0.1f, 0.1f), accentCol);
-                core.GetComponent<Renderer>().material = MakeGlowMat(accentCol, 3f);
-                for (int i = 0; i < 2; i++)
-                {
-                    float side = (i == 0) ? -0.18f : 0.18f;
-                    AddDecor(parent, PrimitiveType.Cube, new Vector3(side, 0.65f, 0.1f),
-                        new Vector3(0.06f, 0.15f, 0.08f), col * 0.7f);
-                }
-                AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.95f, 0f),
-                    new Vector3(0.02f, 0.1f, 0.02f), new Color(0.3f, 0.3f, 0.3f));
-                break;
-        }
+        // Collider
+        BoxCollider col = parent.AddComponent<BoxCollider>();
+        float totalH = (baseData.Height + headData.Height) * vs;
+        col.center = new Vector3(0, totalH * 0.5f, 0);
+        col.size = new Vector3(baseData.Width * vs, totalH, Mathf.Max(baseData.Depth, headData.Depth) * vs);
 
         Defense def = parent.AddComponent<Defense>();
         def.SetDefenseType(SelectedDefenseType);
         CancelBuild();
-    }
-
-    void AddBarrel(GameObject parent, Vector3 pos, Vector3 scale, Color color)
-    {
-        GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        barrel.transform.SetParent(parent.transform);
-        barrel.transform.localPosition = pos;
-        barrel.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
-        barrel.transform.localScale = scale;
-        barrel.name = "TurretBarrel";
-        barrel.GetComponent<Renderer>().material = MakeMat(color);
-        Destroy(barrel.GetComponent<Collider>());
-    }
-
-    GameObject AddDecor(GameObject parent, PrimitiveType type, Vector3 pos, Vector3 scale, Color color)
-    {
-        GameObject obj = GameObject.CreatePrimitive(type);
-        obj.transform.SetParent(parent.transform);
-        obj.transform.localPosition = pos;
-        obj.transform.localScale = scale;
-        obj.GetComponent<Renderer>().material = MakeMat(color);
-        Destroy(obj.GetComponent<Collider>());
-        return obj;
     }
 
     void PlaceMine(Vector3 position)
@@ -544,46 +417,18 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Mine.GetBuildCost()))
             return;
 
-        Color woodBrown = new Color(0.35f, 0.25f, 0.12f);
+        VoxelData data = VoxelModels.CreateMine();
+        float vs = 0.2f;
+        Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
         GameObject parent = new GameObject("Mine");
         parent.transform.position = position;
 
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.06f, 0),
-            new Vector3(1.4f, 0.12f, 1.4f), new Color(0.3f, 0.26f, 0.18f));
-
-        GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shaft.transform.SetParent(parent.transform);
-        shaft.transform.localPosition = new Vector3(0f, 0.4f, 0f);
-        shaft.transform.localScale = new Vector3(1.2f, 0.7f, 1.2f);
-        shaft.GetComponent<Renderer>().material = MakeMat(new Color(0.35f, 0.3f, 0.2f));
-
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
-            new Vector3(0.06f, 0.7f, 0.04f), woodBrown * 0.7f);
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
-            new Vector3(0.7f, 0.06f, 0.04f), woodBrown * 0.7f);
-
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.82f, 0),
-            new Vector3(1.5f, 0.1f, 1.5f), woodBrown);
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.78f, 0),
-            new Vector3(1.55f, 0.04f, 1.55f), woodBrown * 0.7f);
-
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.3f, -0.61f),
-            new Vector3(0.35f, 0.45f, 0.02f), new Color(0.05f, 0.05f, 0.05f));
-
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.9f, 0.18f, 0),
-            new Vector3(0.4f, 0.22f, 0.35f), new Color(0.4f, 0.35f, 0.3f));
-
-        GameObject gold = AddDecor(parent, PrimitiveType.Sphere,
-            new Vector3(-0.9f, 0.35f, 0), new Vector3(0.25f, 0.15f, 0.22f), new Color(0.9f, 0.75f, 0.2f));
-        gold.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.9f, 0.75f, 0.2f), 0.8f);
-
-        for (int i = 0; i < 2; i++)
-        {
-            float z = (i == 0) ? -0.12f : 0.12f;
-            AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.6f, 0.03f, z),
-                new Vector3(1.2f, 0.03f, 0.04f), new Color(0.35f, 0.3f, 0.3f));
-        }
+        GameObject voxelGO = new GameObject("MineVoxels");
+        voxelGO.transform.SetParent(parent.transform);
+        voxelGO.transform.localPosition = offset;
+        VoxelObject vo = voxelGO.AddComponent<VoxelObject>();
+        vo.Init(data, vs);
 
         parent.AddComponent<Mine>();
         CancelBuild();
@@ -599,29 +444,5 @@ public class BuildingSystem : MonoBehaviour
             previewObject = null;
         }
         OnBuildModeChanged?.Invoke(CurrentMode);
-    }
-
-    Color GetDefenseColor(DefenseType type)
-    {
-        switch (type)
-        {
-            case DefenseType.Gun: return new Color(0.4f, 0.4f, 0.4f);
-            case DefenseType.Crossbow: return new Color(0.55f, 0.38f, 0.18f);
-            case DefenseType.RocketLauncher: return new Color(0.3f, 0.45f, 0.28f);
-            case DefenseType.PlasmaGun: return new Color(0.25f, 0.3f, 0.7f);
-            default: return Color.white;
-        }
-    }
-
-    Color GetDefenseAccent(DefenseType type)
-    {
-        switch (type)
-        {
-            case DefenseType.Gun: return new Color(0.8f, 0.7f, 0.2f);
-            case DefenseType.Crossbow: return new Color(0.7f, 0.5f, 0.3f);
-            case DefenseType.RocketLauncher: return new Color(0.8f, 0.2f, 0.1f);
-            case DefenseType.PlasmaGun: return new Color(0.3f, 0.5f, 1f);
-            default: return Color.white;
-        }
     }
 }

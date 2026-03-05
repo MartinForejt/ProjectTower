@@ -14,10 +14,13 @@ public class Wall : MonoBehaviour
 
     public event System.Action<float, float> OnHealthChanged;
 
+    private VoxelObject voxelObject;
+
     void Start()
     {
         MaxHealth = baseHealth;
         Health = MaxHealth;
+        voxelObject = GetComponentInChildren<VoxelObject>();
     }
 
     public void TakeDamage(float damage)
@@ -35,6 +38,14 @@ public class Wall : MonoBehaviour
         Health -= damage;
         OnHealthChanged?.Invoke(Health, MaxHealth);
 
+        // Chip voxels on hit
+        if (voxelObject != null)
+        {
+            Vector3 hitPoint = transform.position + Random.insideUnitSphere * 0.5f;
+            hitPoint.y = Mathf.Max(0.1f, hitPoint.y);
+            voxelObject.DamageAt(hitPoint, 0.3f);
+        }
+
         if (Health <= 0)
         {
             Health = 0;
@@ -50,27 +61,11 @@ public class Wall : MonoBehaviour
         if (BuildingSystem.Instance != null)
             BuildingSystem.Instance.OnWallDestroyed(this);
 
-        // Gib the wall pieces
-        Renderer[] rends = GetComponentsInChildren<Renderer>();
-        foreach (Renderer r in rends)
-        {
-            GameObject gib = r.gameObject;
-            gib.transform.SetParent(null);
+        // Voxel explosion
+        if (voxelObject != null)
+            voxelObject.Explode(8f);
 
-            if (gib.GetComponent<Collider>() == null)
-            {
-                BoxCollider bc = gib.AddComponent<BoxCollider>();
-                bc.size = Vector3.one * 0.3f;
-            }
-
-            Rigidbody rb = gib.AddComponent<Rigidbody>();
-            rb.mass = Random.Range(0.5f, 2f);
-            rb.AddExplosionForce(Random.Range(3f, 10f), transform.position, 3f, 1f, ForceMode.Impulse);
-            rb.AddTorque(Random.insideUnitSphere * 5f, ForceMode.Impulse);
-            Destroy(gib, Random.Range(2f, 4f));
-        }
-
-        Destroy(gameObject);
+        Destroy(gameObject, 0.1f);
     }
 
     public void UpgradeWall(int newLevel)

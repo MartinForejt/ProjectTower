@@ -23,10 +23,9 @@ public class Defense : MonoBehaviour
     protected float fireCooldown;
     protected Transform currentTarget;
     private Transform headTransform;
-    private Transform barrelTransform;
 
     // Recoil
-    private Vector3 barrelOriginalLocalPos;
+    private Vector3 headOriginalLocalPos;
     private float recoilTimer;
     private float recoilDuration = 0.12f;
     private float recoilDistance = 0.15f;
@@ -64,11 +63,14 @@ public class Defense : MonoBehaviour
     {
         foreach (Transform child in GetComponentsInChildren<Transform>())
         {
-            if (child.name == "TurretHead") headTransform = child;
-            if (child.name == "TurretBarrel") barrelTransform = child;
+            if (child.name == "TurretHead")
+            {
+                headTransform = child;
+                break;
+            }
         }
-        if (barrelTransform != null)
-            barrelOriginalLocalPos = barrelTransform.localPosition;
+        if (headTransform != null)
+            headOriginalLocalPos = headTransform.localPosition;
     }
 
     void Update()
@@ -79,15 +81,12 @@ public class Defense : MonoBehaviour
         fireCooldown -= Time.deltaTime;
 
         // Recoil recovery
-        if (recoilTimer > 0 && barrelTransform != null)
+        if (recoilTimer > 0 && headTransform != null)
         {
             recoilTimer -= Time.deltaTime;
             float t = Mathf.Clamp01(1f - recoilTimer / recoilDuration);
-            // Ease out: fast kick, slow return
-            float recoilT = t < 0.3f ? (1f - t / 0.3f) : ((t - 0.3f) / 0.7f - 1f) * -0f;
-            // Simple: interpolate back
             float offset = Mathf.Lerp(recoilDistance, 0f, t * t);
-            barrelTransform.localPosition = barrelOriginalLocalPos + Vector3.forward * -offset;
+            headTransform.localPosition = headOriginalLocalPos + Vector3.forward * -offset;
         }
 
         if (currentTarget == null || !IsTargetInRange(currentTarget))
@@ -156,14 +155,14 @@ public class Defense : MonoBehaviour
     {
         if (currentTarget == null) return;
 
-        Vector3 spawnPos = barrelTransform != null
-            ? barrelTransform.position + barrelTransform.forward * 0.3f
+        Vector3 spawnPos = headTransform != null
+            ? headTransform.position + headTransform.forward * 0.55f + Vector3.up * 0.15f
             : transform.position + Vector3.up * 0.7f + transform.forward * 0.35f;
 
         // Recoil kick
         recoilTimer = recoilDuration;
-        if (barrelTransform != null)
-            barrelTransform.localPosition = barrelOriginalLocalPos + Vector3.forward * -recoilDistance;
+        if (headTransform != null)
+            headTransform.localPosition = headOriginalLocalPos + Vector3.forward * -recoilDistance;
 
         // Spawn projectile
         GameObject projObj = new GameObject("Projectile_" + defenseType);
@@ -205,16 +204,13 @@ public class Defense : MonoBehaviour
                 flashColor = Color.yellow; flashSize = 0.15f; break;
         }
 
-        // Main flash
         GameObject flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         flash.transform.position = pos;
         flash.transform.localScale = Vector3.one * flashSize;
         Destroy(flash.GetComponent<Collider>());
-        Material m = MakeGlowMat(flashColor, 6f);
-        flash.GetComponent<Renderer>().material = m;
+        flash.GetComponent<Renderer>().material = MakeGlowMat(flashColor, 6f);
         Destroy(flash, 0.08f);
 
-        // Secondary flash (larger, dimmer)
         GameObject flash2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         flash2.transform.position = pos;
         flash2.transform.localScale = Vector3.one * flashSize * 1.8f;
@@ -227,7 +223,7 @@ public class Defense : MonoBehaviour
     {
         if (defenseType == DefenseType.Crossbow) return;
 
-        Vector3 forward = barrelTransform != null ? barrelTransform.forward : transform.forward;
+        Vector3 forward = headTransform != null ? headTransform.forward : transform.forward;
         int sparkCount = defenseType == DefenseType.RocketLauncher ? 8 : 4;
         Color sparkColor = defenseType == DefenseType.PlasmaGun
             ? new Color(0.4f, 0.6f, 1f)
@@ -266,7 +262,7 @@ public class Defense : MonoBehaviour
 
         Rigidbody rb = casing.AddComponent<Rigidbody>();
         rb.mass = 0.005f;
-        Vector3 right = barrelTransform != null ? barrelTransform.right : transform.right;
+        Vector3 right = headTransform != null ? headTransform.right : transform.right;
         rb.linearVelocity = (right + Vector3.up * 0.5f) * Random.Range(2f, 4f);
         rb.angularVelocity = Random.insideUnitSphere * 20f;
 
