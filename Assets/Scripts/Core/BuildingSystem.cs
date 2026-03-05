@@ -287,6 +287,16 @@ public class BuildingSystem : MonoBehaviour
     Material MakePreviewMat(Color color)
     {
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+        if (color.a < 1f)
+        {
+            mat.SetFloat("_Surface", 1);
+            mat.SetFloat("_Blend", 0);
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0);
+            mat.renderQueue = 3000;
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        }
         mat.color = color;
         return mat;
     }
@@ -330,7 +340,7 @@ public class BuildingSystem : MonoBehaviour
         range.transform.localPosition = new Vector3(0f, 0.01f, 0f);
         range.transform.localScale = new Vector3(rangeSize, 0.005f, rangeSize);
         range.GetComponent<Collider>().enabled = false;
-        range.GetComponent<Renderer>().material = MakePreviewMat(new Color(0.15f, 0.15f, 0f));
+        range.GetComponent<Renderer>().material = MakePreviewMat(new Color(0.2f, 1f, 0.3f, 0.12f));
     }
 
     float GetDefenseRange(DefenseType type)
