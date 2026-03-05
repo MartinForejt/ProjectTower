@@ -12,10 +12,6 @@ public class BuildingSystem : MonoBehaviour
 {
     public static BuildingSystem Instance { get; private set; }
 
-    [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private Material validPlacementMat;
-    [SerializeField] private Material invalidPlacementMat;
-
     public BuildMode CurrentMode { get; private set; }
     public DefenseType SelectedDefenseType { get; private set; }
 
@@ -36,20 +32,26 @@ public class BuildingSystem : MonoBehaviour
     void Update()
     {
         if (CurrentMode == BuildMode.None) return;
+        if (Camera.main == null) return;
 
+        // Raycast against all colliders, filter for ground by Y position
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit, 200f, groundLayer))
+        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+
+        if (groundPlane.Raycast(ray, out float distance))
         {
+            Vector3 hitPoint = ray.GetPoint(distance);
+
             if (previewObject != null)
             {
-                Vector3 pos = hit.point;
+                Vector3 pos = hitPoint;
                 pos.y = 0.5f;
                 previewObject.transform.position = pos;
             }
 
             if (Input.GetMouseButtonDown(0))
             {
-                TryPlace(hit.point);
+                TryPlace(hitPoint);
             }
         }
 
@@ -68,7 +70,7 @@ public class BuildingSystem : MonoBehaviour
 
         SelectedDefenseType = type;
         CurrentMode = BuildMode.PlaceDefense;
-        CreatePreview(PrimitiveType.Cylinder, GetDefenseColor(type));
+        CreatePreview(GetDefenseColor(type));
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
@@ -79,7 +81,7 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         CurrentMode = BuildMode.PlaceMine;
-        CreatePreview(PrimitiveType.Cube, Color.yellow);
+        CreatePreviewMine();
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
@@ -90,13 +92,17 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         CurrentMode = BuildMode.PlaceWall;
-        CreatePreview(PrimitiveType.Cube, Color.gray);
+        CreatePreviewWall();
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
     void TryPlace(Vector3 position)
     {
         position.y = 0f;
+
+        // Don't allow placing too close to tower
+        if (Vector3.Distance(position, Vector3.zero) < 4f)
+            return;
 
         switch (CurrentMode)
         {
@@ -112,27 +118,49 @@ public class BuildingSystem : MonoBehaviour
         }
     }
 
+    Material MakeMat(Color color)
+    {
+        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        mat.color = color;
+        return mat;
+    }
+
     void PlaceDefense(Vector3 position)
     {
         int cost = Defense.GetBuildCost(SelectedDefenseType);
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
             return;
 
-        GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        obj.transform.position = position + Vector3.up * 0.5f;
-        obj.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
-        obj.name = SelectedDefenseType.ToString() + "Turret";
+        Color col = GetDefenseColor(SelectedDefenseType);
 
-        Renderer rend = obj.GetComponent<Renderer>();
-        if (rend != null)
-        {
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = GetDefenseColor(SelectedDefenseType);
-            rend.material = mat;
-        }
+        GameObject parent = new GameObject(SelectedDefenseType.ToString() + "Turret");
+        parent.transform.position = position;
 
-        Defense defense = obj.AddComponent<Defense>();
+        // Turret base
+        GameObject tBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        tBase.transform.SetParent(parent.transform);
+        tBase.transform.localPosition = new Vector3(0f, 0.4f, 0f);
+        tBase.transform.localScale = new Vector3(1f, 0.8f, 1f);
+        tBase.GetComponent<Renderer>().material = MakeMat(col * 0.7f);
 
+        // Turret body
+        GameObject tBody = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        tBody.transform.SetParent(parent.transform);
+        tBody.transform.localPosition = new Vector3(0f, 1.2f, 0f);
+        tBody.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
+        tBody.GetComponent<Renderer>().material = MakeMat(col);
+        Destroy(tBody.GetComponent<Collider>());
+
+        // Barrel
+        GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        barrel.transform.SetParent(parent.transform);
+        barrel.transform.localPosition = new Vector3(0f, 1.2f, 0.5f);
+        barrel.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
+        barrel.transform.localScale = new Vector3(0.15f, 0.5f, 0.15f);
+        barrel.GetComponent<Renderer>().material = MakeMat(col * 0.5f);
+        Destroy(barrel.GetComponent<Collider>());
+
+        parent.AddComponent<Defense>();
         CancelBuild();
     }
 
@@ -141,21 +169,23 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Mine.GetBuildCost()))
             return;
 
-        GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        obj.transform.position = position + Vector3.up * 0.25f;
-        obj.transform.localScale = new Vector3(1.5f, 0.5f, 1.5f);
-        obj.name = "Mine";
+        GameObject mineParent = new GameObject("Mine");
+        mineParent.transform.position = position;
 
-        Renderer rend = obj.GetComponent<Renderer>();
-        if (rend != null)
-        {
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.9f, 0.75f, 0.2f);
-            rend.material = mat;
-        }
+        GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shaft.transform.SetParent(mineParent.transform);
+        shaft.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+        shaft.transform.localScale = new Vector3(2f, 1f, 2f);
+        shaft.GetComponent<Renderer>().material = MakeMat(new Color(0.35f, 0.3f, 0.2f));
 
-        obj.AddComponent<Mine>();
+        GameObject roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        roof.transform.SetParent(mineParent.transform);
+        roof.transform.localPosition = new Vector3(0f, 1.2f, 0f);
+        roof.transform.localScale = new Vector3(2.4f, 0.3f, 2.4f);
+        roof.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.25f, 0.1f));
+        Destroy(roof.GetComponent<Collider>());
 
+        mineParent.AddComponent<Mine>();
         CancelBuild();
     }
 
@@ -164,38 +194,61 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Wall.GetBuildCost()))
             return;
 
-        GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        obj.transform.position = position + Vector3.up * 1f;
-        obj.transform.localScale = new Vector3(3f, 2f, 0.5f);
-        obj.name = "Wall";
+        GameObject wallParent = new GameObject("Wall");
+        wallParent.transform.position = position;
+        wallParent.transform.LookAt(Vector3.zero);
 
-        Renderer rend = obj.GetComponent<Renderer>();
-        if (rend != null)
+        GameObject wallBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wallBase.transform.SetParent(wallParent.transform);
+        wallBase.transform.localPosition = new Vector3(0f, 1f, 0f);
+        wallBase.transform.localScale = new Vector3(3.5f, 2f, 0.7f);
+        wallBase.GetComponent<Renderer>().material = MakeMat(new Color(0.5f, 0.45f, 0.38f));
+
+        for (int c = -1; c <= 1; c++)
         {
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.5f, 0.5f, 0.55f);
-            rend.material = mat;
+            GameObject cren = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cren.transform.SetParent(wallParent.transform);
+            cren.transform.localPosition = new Vector3(c * 1.2f, 2.3f, 0f);
+            cren.transform.localScale = new Vector3(0.6f, 0.6f, 0.75f);
+            cren.GetComponent<Renderer>().material = MakeMat(new Color(0.48f, 0.43f, 0.36f));
+            Destroy(cren.GetComponent<Collider>());
         }
 
-        obj.AddComponent<Wall>();
-
+        wallParent.AddComponent<Wall>();
         CancelBuild();
     }
 
-    void CreatePreview(PrimitiveType type, Color color)
+    void CreatePreview(Color color)
     {
-        previewObject = GameObject.CreatePrimitive(type);
-        previewObject.name = "BuildPreview";
-        previewObject.GetComponent<Collider>().enabled = false;
+        previewObject = new GameObject("BuildPreview");
 
-        Renderer rend = previewObject.GetComponent<Renderer>();
-        if (rend != null)
-        {
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            color.a = 0.5f;
-            mat.color = color;
-            rend.material = mat;
-        }
+        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        body.transform.SetParent(previewObject.transform);
+        body.transform.localPosition = new Vector3(0f, 0.4f, 0f);
+        body.transform.localScale = new Vector3(1f, 0.8f, 1f);
+        body.GetComponent<Collider>().enabled = false;
+        color.a = 0.5f;
+        body.GetComponent<Renderer>().material = MakeMat(color);
+    }
+
+    void CreatePreviewMine()
+    {
+        previewObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        previewObject.name = "BuildPreview";
+        previewObject.transform.localScale = new Vector3(2f, 1f, 2f);
+        previewObject.GetComponent<Collider>().enabled = false;
+        Color c = new Color(0.9f, 0.75f, 0.2f, 0.5f);
+        previewObject.GetComponent<Renderer>().material = MakeMat(c);
+    }
+
+    void CreatePreviewWall()
+    {
+        previewObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        previewObject.name = "BuildPreview";
+        previewObject.transform.localScale = new Vector3(3.5f, 2f, 0.7f);
+        previewObject.GetComponent<Collider>().enabled = false;
+        Color c = new Color(0.5f, 0.45f, 0.38f, 0.5f);
+        previewObject.GetComponent<Renderer>().material = MakeMat(c);
     }
 
     public void CancelBuild()
@@ -213,9 +266,9 @@ public class BuildingSystem : MonoBehaviour
     {
         switch (type)
         {
-            case DefenseType.Gun: return new Color(0.3f, 0.3f, 0.3f);
+            case DefenseType.Gun: return new Color(0.4f, 0.4f, 0.4f);
             case DefenseType.Crossbow: return new Color(0.6f, 0.4f, 0.2f);
-            case DefenseType.RocketLauncher: return new Color(0.2f, 0.5f, 0.2f);
+            case DefenseType.RocketLauncher: return new Color(0.3f, 0.5f, 0.3f);
             case DefenseType.PlasmaGun: return new Color(0.3f, 0.3f, 0.9f);
             default: return Color.white;
         }

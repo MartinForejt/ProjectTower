@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections;
-using System.Collections.Generic;
 
 [System.Serializable]
 public class WaveData
@@ -16,6 +15,7 @@ public class WaveManager : MonoBehaviour
     public static WaveManager Instance { get; private set; }
 
     [SerializeField] private float timeBetweenWaves = 10f;
+    [SerializeField] private float preWaveCountdown = 10f;
     [SerializeField] private float spawnInterval = 1.5f;
     [SerializeField] private int baseEnemiesPerWave = 5;
     [SerializeField] private float enemyCountScaling = 1.3f;
@@ -24,6 +24,8 @@ public class WaveManager : MonoBehaviour
     public int CurrentWave { get; private set; }
     public int EnemiesAlive { get; private set; }
     public bool WaveInProgress { get; private set; }
+    public float CountdownTimer { get; private set; }
+    public bool IsCountingDown { get; private set; }
 
     public event System.Action<int> OnWaveStart;
     public event System.Action<int> OnWaveComplete;
@@ -47,6 +49,17 @@ public class WaveManager : MonoBehaviour
         if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Playing)
             return;
 
+        if (IsCountingDown)
+        {
+            CountdownTimer -= Time.deltaTime;
+            if (CountdownTimer <= 0f)
+            {
+                IsCountingDown = false;
+                ActuallyStartWave();
+            }
+            return;
+        }
+
         if (waitingForNextWave)
         {
             waveTimer -= Time.deltaTime;
@@ -67,12 +80,18 @@ public class WaveManager : MonoBehaviour
     {
         CurrentWave++;
         GameManager.Instance.CurrentWave = CurrentWave;
-        WaveInProgress = true;
         waitingForNextWave = false;
 
+        // Start countdown
+        CountdownTimer = (CurrentWave == 1) ? preWaveCountdown : timeBetweenWaves;
+        IsCountingDown = true;
+    }
+
+    void ActuallyStartWave()
+    {
+        WaveInProgress = true;
         WaveData data = GenerateWaveData(CurrentWave);
         OnWaveStart?.Invoke(CurrentWave);
-
         StartCoroutine(SpawnWave(data));
     }
 
@@ -116,6 +135,7 @@ public class WaveManager : MonoBehaviour
     public void OnEnemyDied()
     {
         EnemiesAlive--;
+        if (EnemiesAlive < 0) EnemiesAlive = 0;
         OnEnemyCountChanged?.Invoke(EnemiesAlive);
 
         if (EnemiesAlive <= 0 && WaveInProgress)
@@ -123,7 +143,6 @@ public class WaveManager : MonoBehaviour
             WaveInProgress = false;
             OnWaveComplete?.Invoke(CurrentWave);
 
-            // Bonus coins per wave
             if (EconomyManager.Instance != null)
                 EconomyManager.Instance.AddCoins(20 + CurrentWave * 5);
 
@@ -134,6 +153,7 @@ public class WaveManager : MonoBehaviour
 
     public float GetTimeToNextWave()
     {
+        if (IsCountingDown) return CountdownTimer;
         return waitingForNextWave ? waveTimer : -1f;
     }
 }

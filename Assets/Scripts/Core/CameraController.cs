@@ -2,35 +2,34 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour
 {
-    [SerializeField] private Vector3 offset = new Vector3(0f, 15f, -10f);
-    [SerializeField] private Vector3 rotation = new Vector3(50f, 0f, 0f);
-    [SerializeField] private float zoomSpeed = 2f;
-    [SerializeField] private float minZoom = 10f;
-    [SerializeField] private float maxZoom = 30f;
+    [SerializeField] private float zoomSpeed = 5f;
+    [SerializeField] private float minFov = 30f;
+    [SerializeField] private float maxFov = 80f;
 
-    private float currentZoom = 20f;
+    private Camera cam;
 
     void Start()
     {
-        currentZoom = offset.magnitude;
-        ApplyCamera();
+        cam = GetComponent<Camera>();
+        if (cam == null) cam = Camera.main;
+
+        // Camera positioned south of tower, looking north and angled down
+        // Tower at origin (0,0,0), enemies come from south (negative Z)
+        // This places the tower at the top 1/3 of screen
+        transform.position = new Vector3(0f, 32f, -30f);
+        transform.eulerAngles = new Vector3(48f, 0f, 0f);
+
+        if (cam != null)
+            cam.fieldOfView = 55f;
     }
 
     void Update()
     {
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        if (scroll != 0f)
+        if (scroll != 0f && cam != null)
         {
-            currentZoom -= scroll * zoomSpeed;
-            currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
-            ApplyCamera();
+            cam.fieldOfView -= scroll * zoomSpeed;
+            cam.fieldOfView = Mathf.Clamp(cam.fieldOfView, minFov, maxFov);
         }
-    }
-
-    void ApplyCamera()
-    {
-        Vector3 dir = offset.normalized;
-        transform.position = dir * currentZoom;
-        transform.eulerAngles = rotation;
     }
 }

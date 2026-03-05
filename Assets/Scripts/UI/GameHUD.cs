@@ -2,12 +2,13 @@ using UnityEngine;
 
 public class GameHUD : MonoBehaviour
 {
-    private bool showBuildMenu;
-    private bool showUpgradePanel;
     private GUIStyle headerStyle;
     private GUIStyle labelStyle;
     private GUIStyle buttonStyle;
     private GUIStyle smallButtonStyle;
+    private Texture2D redTex;
+    private Texture2D blueTex;
+    private Texture2D darkTex;
     private bool stylesInitialized;
 
     void InitStyles()
@@ -41,6 +42,10 @@ public class GameHUD : MonoBehaviour
             fixedHeight = 28
         };
 
+        redTex = MakeTexture(new Color(0.8f, 0.15f, 0.15f));
+        blueTex = MakeTexture(new Color(0.2f, 0.4f, 0.9f));
+        darkTex = MakeTexture(new Color(0.15f, 0.15f, 0.15f, 0.7f));
+
         stylesInitialized = true;
     }
 
@@ -49,19 +54,18 @@ public class GameHUD : MonoBehaviour
         if (GameManager.Instance == null) return;
         InitStyles();
 
-        if (GameManager.Instance.CurrentState == GameState.Setup)
+        GameState state = GameManager.Instance.CurrentState;
+
+        if (state == GameState.Setup)
             DrawSetupHUD();
-        else if (GameManager.Instance.CurrentState == GameState.Playing)
+        else if (state == GameState.Playing)
             DrawPlayingHUD();
-        else if (GameManager.Instance.CurrentState == GameState.Paused)
+        else if (state == GameState.Paused)
             DrawPausedHUD();
-        else if (GameManager.Instance.CurrentState == GameState.GameOver)
+        else if (state == GameState.GameOver)
             DrawGameOverHUD();
 
-        // Always show top bar when in game
-        if (GameManager.Instance.CurrentState == GameState.Setup ||
-            GameManager.Instance.CurrentState == GameState.Playing ||
-            GameManager.Instance.CurrentState == GameState.Paused)
+        if (state == GameState.Setup || state == GameState.Playing || state == GameState.Paused)
         {
             DrawTopBar();
             DrawBuildPanel();
@@ -70,47 +74,63 @@ public class GameHUD : MonoBehaviour
 
     void DrawTopBar()
     {
-        GUI.Box(new Rect(0, 0, Screen.width, 40), "");
+        GUI.DrawTexture(new Rect(0, 0, Screen.width, 45), darkTex);
 
         // Coins
         int coins = EconomyManager.Instance != null ? EconomyManager.Instance.Coins : 0;
-        GUI.Label(new Rect(10, 5, 200, 30), $"Coins: {coins}", headerStyle);
+        GUIStyle coinStyle = new GUIStyle(headerStyle) { alignment = TextAnchor.MiddleLeft };
+        coinStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
+        GUI.Label(new Rect(200, 8, 200, 30), $"Gold: {coins}", coinStyle);
 
         // Wave info
         if (WaveManager.Instance != null)
         {
-            string waveText = $"Wave: {WaveManager.Instance.CurrentWave}";
-            GUI.Label(new Rect(Screen.width / 2 - 80, 5, 160, 30), waveText, headerStyle);
+            GUI.Label(new Rect(Screen.width / 2 - 100, 8, 200, 30), $"Wave: {WaveManager.Instance.CurrentWave}", headerStyle);
 
-            string enemyText = $"Enemies: {WaveManager.Instance.EnemiesAlive}";
-            GUI.Label(new Rect(Screen.width / 2 + 80, 5, 160, 30), enemyText, labelStyle);
+            GUIStyle smallLabel = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter };
+            GUI.Label(new Rect(Screen.width / 2 + 100, 8, 200, 30), $"Enemies: {WaveManager.Instance.EnemiesAlive}", smallLabel);
 
-            float nextWave = WaveManager.Instance.GetTimeToNextWave();
-            if (nextWave > 0)
+            // Countdown / next wave timer
+            if (WaveManager.Instance.IsCountingDown)
             {
-                GUI.Label(new Rect(Screen.width / 2 + 240, 5, 200, 30), $"Next wave: {nextWave:F0}s", labelStyle);
+                GUIStyle countdownStyle = new GUIStyle(headerStyle);
+                countdownStyle.normal.textColor = new Color(1f, 0.5f, 0.2f);
+                float t = WaveManager.Instance.CountdownTimer;
+                GUI.Label(new Rect(Screen.width / 2 - 100, 35, 200, 25),
+                    $"Wave starts in: {t:F0}s", countdownStyle);
+            }
+            else
+            {
+                float nextWave = WaveManager.Instance.GetTimeToNextWave();
+                if (nextWave > 0)
+                {
+                    GUIStyle timerStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter };
+                    timerStyle.normal.textColor = Color.yellow;
+                    GUI.Label(new Rect(Screen.width / 2 + 280, 8, 200, 30), $"Next: {nextWave:F0}s", timerStyle);
+                }
             }
         }
 
-        // Tower health bar
+        // Tower HP bar
         if (Tower.Instance != null)
         {
+            float barX = Screen.width - 340;
             float healthPct = Tower.Instance.Health / Tower.Instance.MaxHealth;
             float shieldPct = Tower.Instance.MaxShield > 0 ? Tower.Instance.Shield / Tower.Instance.MaxShield : 0;
 
-            float barX = Screen.width - 320;
+            GUIStyle barLabel = new GUIStyle(labelStyle) { fontSize = 12 };
 
-            GUI.Label(new Rect(barX, 5, 60, 15), "HP:", labelStyle);
-            GUI.Box(new Rect(barX + 30, 5, 120, 14), "");
-            GUI.DrawTexture(new Rect(barX + 31, 6, 118 * healthPct, 12), MakeTexture(Color.red));
+            GUI.Label(new Rect(barX, 6, 30, 16), "HP", barLabel);
+            GUI.DrawTexture(new Rect(barX + 25, 8, 122, 14), darkTex);
+            GUI.DrawTexture(new Rect(barX + 26, 9, 120 * healthPct, 12), redTex);
 
-            GUI.Label(new Rect(barX + 160, 5, 60, 15), "Shield:", labelStyle);
-            GUI.Box(new Rect(barX + 210, 5, 100, 14), "");
-            GUI.DrawTexture(new Rect(barX + 211, 6, 98 * shieldPct, 12), MakeTexture(new Color(0.3f, 0.5f, 1f)));
+            GUI.Label(new Rect(barX + 155, 6, 50, 16), "Shield", barLabel);
+            GUI.DrawTexture(new Rect(barX + 200, 8, 102, 14), darkTex);
+            GUI.DrawTexture(new Rect(barX + 201, 9, 100 * shieldPct, 12), blueTex);
         }
 
         // Pause button
-        if (GUI.Button(new Rect(Screen.width - 90, 5, 80, 30), "Pause", smallButtonStyle))
+        if (GUI.Button(new Rect(Screen.width - 90, 8, 80, 30), "Pause", smallButtonStyle))
         {
             if (GameManager.Instance.CurrentState == GameState.Playing)
                 GameManager.Instance.PauseGame();
@@ -121,14 +141,13 @@ public class GameHUD : MonoBehaviour
     {
         float centerX = Screen.width / 2f;
 
-        // Big start button
         GUIStyle startStyle = new GUIStyle(GUI.skin.button)
         {
             fontSize = 28,
             fontStyle = FontStyle.Bold
         };
 
-        if (GUI.Button(new Rect(centerX - 100, Screen.height - 80, 200, 55), "START WAVES", startStyle))
+        if (GUI.Button(new Rect(centerX - 120, Screen.height - 90, 240, 60), "START WAVES", startStyle))
         {
             GameManager.Instance.StartWaves();
             if (WaveManager.Instance != null)
@@ -141,13 +160,35 @@ public class GameHUD : MonoBehaviour
             alignment = TextAnchor.MiddleCenter
         };
         tipStyle.normal.textColor = Color.yellow;
-        GUI.Label(new Rect(centerX - 250, Screen.height - 120, 500, 30),
+        GUI.Label(new Rect(centerX - 300, Screen.height - 130, 600, 30),
             "Place your defenses before starting! Use the build menu on the left.", tipStyle);
     }
 
     void DrawPlayingHUD()
     {
-        // Playing-specific UI can go here
+        // Big countdown overlay when counting down
+        if (WaveManager.Instance != null && WaveManager.Instance.IsCountingDown)
+        {
+            float t = WaveManager.Instance.CountdownTimer;
+            GUIStyle bigCount = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 72,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            bigCount.normal.textColor = new Color(1f, 0.4f, 0.1f, 0.8f);
+            GUI.Label(new Rect(Screen.width / 2 - 100, Screen.height / 2 - 80, 200, 100),
+                Mathf.CeilToInt(t).ToString(), bigCount);
+
+            GUIStyle subText = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 24,
+                alignment = TextAnchor.MiddleCenter
+            };
+            subText.normal.textColor = Color.white;
+            GUI.Label(new Rect(Screen.width / 2 - 150, Screen.height / 2 + 20, 300, 40),
+                $"Wave {WaveManager.Instance.CurrentWave} incoming!", subText);
+        }
     }
 
     void DrawPausedHUD()
@@ -155,16 +196,16 @@ public class GameHUD : MonoBehaviour
         float centerX = Screen.width / 2f;
         float centerY = Screen.height / 2f;
 
-        GUI.Box(new Rect(centerX - 120, centerY - 100, 240, 220), "");
-        GUI.Label(new Rect(centerX - 60, centerY - 90, 120, 40), "PAUSED", headerStyle);
+        GUI.DrawTexture(new Rect(centerX - 130, centerY - 110, 260, 240), darkTex);
+        GUI.Label(new Rect(centerX - 60, centerY - 100, 120, 40), "PAUSED", headerStyle);
 
-        if (GUI.Button(new Rect(centerX - 80, centerY - 30, 160, 40), "Resume", buttonStyle))
+        if (GUI.Button(new Rect(centerX - 80, centerY - 40, 160, 40), "Resume", buttonStyle))
             GameManager.Instance.ResumeGame();
 
-        if (GUI.Button(new Rect(centerX - 80, centerY + 20, 160, 40), "Main Menu", buttonStyle))
+        if (GUI.Button(new Rect(centerX - 80, centerY + 10, 160, 40), "Main Menu", buttonStyle))
             GameManager.Instance.LoadMainMenu();
 
-        if (GUI.Button(new Rect(centerX - 80, centerY + 70, 160, 40), "Quit", buttonStyle))
+        if (GUI.Button(new Rect(centerX - 80, centerY + 60, 160, 40), "Quit", buttonStyle))
             GameManager.Instance.QuitGame();
     }
 
@@ -173,7 +214,7 @@ public class GameHUD : MonoBehaviour
         float centerX = Screen.width / 2f;
         float centerY = Screen.height / 2f;
 
-        GUI.Box(new Rect(centerX - 150, centerY - 100, 300, 200), "");
+        GUI.DrawTexture(new Rect(centerX - 160, centerY - 110, 320, 230), darkTex);
 
         GUIStyle goStyle = new GUIStyle(GUI.skin.label)
         {
@@ -182,78 +223,94 @@ public class GameHUD : MonoBehaviour
             alignment = TextAnchor.MiddleCenter
         };
         goStyle.normal.textColor = Color.red;
-        GUI.Label(new Rect(centerX - 140, centerY - 90, 280, 50), "GAME OVER", goStyle);
+        GUI.Label(new Rect(centerX - 150, centerY - 100, 300, 50), "GAME OVER", goStyle);
 
         int wave = GameManager.Instance.CurrentWave;
-        GUI.Label(new Rect(centerX - 80, centerY - 30, 160, 30), $"Survived to Wave {wave}", labelStyle);
+        GUIStyle waveStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 16 };
+        GUI.Label(new Rect(centerX - 100, centerY - 40, 200, 30), $"Survived to Wave {wave}", waveStyle);
 
-        if (GUI.Button(new Rect(centerX - 80, centerY + 20, 160, 40), "New Game", buttonStyle))
+        if (GUI.Button(new Rect(centerX - 80, centerY + 10, 160, 40), "New Game", buttonStyle))
             GameManager.Instance.NewGame();
 
-        if (GUI.Button(new Rect(centerX - 80, centerY + 70, 160, 40), "Main Menu", buttonStyle))
+        if (GUI.Button(new Rect(centerX - 80, centerY + 60, 160, 40), "Main Menu", buttonStyle))
             GameManager.Instance.LoadMainMenu();
     }
 
     void DrawBuildPanel()
     {
         float panelX = 5;
-        float panelY = 50;
+        float panelY = 55;
         float panelW = 180;
+        float panelH = 370;
 
-        GUI.Box(new Rect(panelX, panelY, panelW, 340), "");
-        GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 25), "BUILD", headerStyle);
+        GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), darkTex);
 
-        float btnY = panelY + 35;
-        float btnH = 32;
-        float spacing = 36;
+        GUIStyle sectionStyle = new GUIStyle(headerStyle) { fontSize = 14 };
+
+        GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 22), "DEFENSES", sectionStyle);
+
+        float btnY = panelY + 30;
+        float btnH = 28;
+        float spacing = 32;
 
         if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
-            $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}c)", smallButtonStyle))
+            $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceDefense(DefenseType.Gun);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
-            $"Crossbow ({Defense.GetBuildCost(DefenseType.Crossbow)}c)", smallButtonStyle))
+            $"Crossbow ({Defense.GetBuildCost(DefenseType.Crossbow)}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceDefense(DefenseType.Crossbow);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
-            $"Rocket ({Defense.GetBuildCost(DefenseType.RocketLauncher)}c)", smallButtonStyle))
+            $"Rocket ({Defense.GetBuildCost(DefenseType.RocketLauncher)}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceDefense(DefenseType.RocketLauncher);
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 3, panelW - 20, btnH),
-            $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}c)", smallButtonStyle))
+            $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceDefense(DefenseType.PlasmaGun);
 
-        // Separator
         btnY += spacing * 4 + 10;
-        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 25), "STRUCTURES", headerStyle);
-        btnY += 28;
+        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "STRUCTURES", sectionStyle);
+        btnY += 24;
 
         if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
-            $"Mine ({Mine.GetBuildCost()}c)", smallButtonStyle))
+            $"Mine ({Mine.GetBuildCost()}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceMine();
 
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
-            $"Wall ({Wall.GetBuildCost()}c)", smallButtonStyle))
+            $"Wall ({Wall.GetBuildCost()}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceWall();
 
-        // Upgrades
         btnY += spacing * 2 + 10;
-        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 25), "TOWER", headerStyle);
-        btnY += 28;
+        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "TOWER UPGRADES", sectionStyle);
+        btnY += 24;
 
         if (Tower.Instance != null)
         {
             if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
-                $"HP Lv{Tower.Instance.HealthLevel} ({Tower.Instance.GetHealthUpgradeCost()}c)", smallButtonStyle))
+                $"HP Lv{Tower.Instance.HealthLevel} ({Tower.Instance.GetHealthUpgradeCost()}g)", smallButtonStyle))
                 Tower.Instance.UpgradeHealth();
 
             if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
-                $"Shield Lv{Tower.Instance.ShieldLevel} ({Tower.Instance.GetShieldUpgradeCost()}c)", smallButtonStyle))
+                $"Shield Lv{Tower.Instance.ShieldLevel} ({Tower.Instance.GetShieldUpgradeCost()}g)", smallButtonStyle))
                 Tower.Instance.UpgradeShield();
+        }
+
+        // Build mode indicator
+        if (BuildingSystem.Instance != null && BuildingSystem.Instance.CurrentMode != BuildMode.None)
+        {
+            GUIStyle modeStyle = new GUIStyle(labelStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 14
+            };
+            modeStyle.normal.textColor = Color.green;
+            GUI.Label(new Rect(panelX, panelY + panelH + 5, panelW, 25),
+                "Click to place | RMB cancel", modeStyle);
         }
     }
 
-    private Texture2D MakeTexture(Color color)
+    Texture2D MakeTexture(Color color)
     {
         Texture2D tex = new Texture2D(1, 1);
         tex.SetPixel(0, 0, color);
