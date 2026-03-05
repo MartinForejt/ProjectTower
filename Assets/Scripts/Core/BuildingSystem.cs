@@ -20,7 +20,7 @@ public class BuildingSystem : MonoBehaviour
     private const float GUI_TOP_BAR_HEIGHT = 50f;
 
     private GameObject previewObject;
-    private bool waitForMouseUp; // Wait for mouse release before allowing placement
+    private bool waitForMouseUp;
 
     public event System.Action<BuildMode> OnBuildModeChanged;
 
@@ -43,19 +43,16 @@ public class BuildingSystem : MonoBehaviour
         var keyboard = Keyboard.current;
         if (mouse == null) return;
 
-        // Wait for the initial click (that activated build mode) to release
         if (waitForMouseUp)
         {
             if (mouse.leftButton.wasReleasedThisFrame)
                 waitForMouseUp = false;
-            // Still move the preview while waiting
             MovePreview(mouse);
             return;
         }
 
         MovePreview(mouse);
 
-        // Check mouse is not over GUI
         Vector2 mousePos = mouse.position.ReadValue();
         bool overGUI = mousePos.x < GUI_PANEL_WIDTH
                     || mousePos.y > Screen.height - GUI_TOP_BAR_HEIGHT;
@@ -159,9 +156,16 @@ public class BuildingSystem : MonoBehaviour
         return mat;
     }
 
+    Material MakeGlowMat(Color color, float intensity)
+    {
+        Material mat = MakeMat(color);
+        mat.EnableKeyword("_EMISSION");
+        mat.SetColor("_EmissionColor", color * intensity);
+        return mat;
+    }
+
     Material MakePreviewMat(Color color)
     {
-        // Use Unlit shader for preview — always visible, no lighting issues
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
         mat.color = color;
         return mat;
@@ -171,11 +175,10 @@ public class BuildingSystem : MonoBehaviour
 
     void CreateDefensePreview(DefenseType type)
     {
-        Color previewColor = new Color(0.2f, 1f, 0.3f); // Bright green
-
+        Color previewColor = new Color(0.2f, 1f, 0.3f);
         previewObject = new GameObject("BuildPreview");
 
-        // Pedestal preview
+        // Base
         GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         pedestal.transform.SetParent(previewObject.transform);
         pedestal.transform.localPosition = new Vector3(0f, 0.25f, 0f);
@@ -183,7 +186,7 @@ public class BuildingSystem : MonoBehaviour
         pedestal.GetComponent<Collider>().enabled = false;
         pedestal.GetComponent<Renderer>().material = MakePreviewMat(previewColor);
 
-        // Head preview
+        // Head
         GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         head.transform.SetParent(previewObject.transform);
         head.transform.localPosition = new Vector3(0f, 0.7f, 0f);
@@ -200,19 +203,31 @@ public class BuildingSystem : MonoBehaviour
         barrel.GetComponent<Collider>().enabled = false;
         barrel.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.6f);
 
-        // Range indicator (flat disc)
+        // Range indicator
+        float rangeSize = GetDefenseRange(type) * 2f;
         GameObject range = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         range.transform.SetParent(previewObject.transform);
         range.transform.localPosition = new Vector3(0f, 0.01f, 0f);
-        range.transform.localScale = new Vector3(15f, 0.005f, 15f);
+        range.transform.localScale = new Vector3(rangeSize, 0.005f, rangeSize);
         range.GetComponent<Collider>().enabled = false;
-        range.GetComponent<Renderer>().material = MakePreviewMat(new Color(1f, 1f, 0f, 1f) * 0.15f);
+        range.GetComponent<Renderer>().material = MakePreviewMat(new Color(0.15f, 0.15f, 0f));
+    }
+
+    float GetDefenseRange(DefenseType type)
+    {
+        switch (type)
+        {
+            case DefenseType.Gun: return 12f;
+            case DefenseType.Crossbow: return 20f;
+            case DefenseType.RocketLauncher: return 22f;
+            case DefenseType.PlasmaGun: return 16f;
+            default: return 15f;
+        }
     }
 
     void CreateMinePreview()
     {
-        Color previewColor = new Color(1f, 0.85f, 0.2f); // Gold-ish
-
+        Color previewColor = new Color(1f, 0.85f, 0.2f);
         previewObject = new GameObject("BuildPreview");
 
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -232,8 +247,7 @@ public class BuildingSystem : MonoBehaviour
 
     void CreateWallPreview()
     {
-        Color previewColor = new Color(0.6f, 0.8f, 1f); // Light blue
-
+        Color previewColor = new Color(0.6f, 0.8f, 1f);
         previewObject = new GameObject("BuildPreview");
 
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -263,33 +277,123 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         Color col = GetDefenseColor(SelectedDefenseType);
+        Color accentCol = GetDefenseAccent(SelectedDefenseType);
 
         GameObject parent = new GameObject(SelectedDefenseType + "Turret");
         parent.transform.position = position;
 
+        // Stone pedestal with base
+        AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.05f, 0f),
+            new Vector3(0.7f, 0.1f, 0.7f), new Color(0.35f, 0.33f, 0.28f));
+
         GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         pedestal.transform.SetParent(parent.transform);
-        pedestal.transform.localPosition = new Vector3(0f, 0.25f, 0f);
-        pedestal.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
+        pedestal.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+        pedestal.transform.localScale = new Vector3(0.55f, 0.5f, 0.55f);
         pedestal.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.38f, 0.33f));
 
+        // Ring detail on pedestal
+        AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f),
+            new Vector3(0.58f, 0.04f, 0.58f), new Color(0.35f, 0.32f, 0.28f));
+
+        // Turret head
         GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         head.transform.SetParent(parent.transform);
         head.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        head.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+        head.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
+        head.name = "TurretHead";
         head.GetComponent<Renderer>().material = MakeMat(col);
         Destroy(head.GetComponent<Collider>());
 
+        // Defense-type-specific details
+        switch (SelectedDefenseType)
+        {
+            case DefenseType.Gun:
+                // Long gun barrel
+                AddBarrel(parent, new Vector3(0f, 0.7f, 0.35f), new Vector3(0.08f, 0.35f, 0.08f), col * 0.5f);
+                // Ammo box
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(0.3f, 0.15f, 0f),
+                    new Vector3(0.18f, 0.12f, 0.15f), new Color(0.3f, 0.3f, 0.25f));
+                // Sight
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.82f, 0.1f),
+                    new Vector3(0.02f, 0.08f, 0.02f), new Color(0.2f, 0.2f, 0.2f));
+                break;
+
+            case DefenseType.Crossbow:
+                // Crossbow arms
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.15f),
+                    new Vector3(0.5f, 0.04f, 0.06f), new Color(0.4f, 0.28f, 0.12f));
+                // Bolt rail
+                AddBarrel(parent, new Vector3(0f, 0.7f, 0.25f), new Vector3(0.04f, 0.2f, 0.04f), col * 0.6f);
+                // String
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.08f),
+                    new Vector3(0.48f, 0.01f, 0.01f), new Color(0.8f, 0.75f, 0.6f));
+                // Bolt rack
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.25f, 0.15f, 0f),
+                    new Vector3(0.1f, 0.2f, 0.1f), new Color(0.4f, 0.3f, 0.15f));
+                break;
+
+            case DefenseType.RocketLauncher:
+                // Dual tubes
+                for (int i = 0; i < 2; i++)
+                {
+                    float side = (i == 0) ? -0.1f : 0.1f;
+                    AddBarrel(parent, new Vector3(side, 0.7f, 0.3f), new Vector3(0.1f, 0.25f, 0.1f), col * 0.5f);
+                    // Exhaust vents
+                    AddDecor(parent, PrimitiveType.Cylinder, new Vector3(side, 0.7f, -0.05f),
+                        new Vector3(0.12f, 0.02f, 0.12f), new Color(0.25f, 0.25f, 0.2f));
+                }
+                // Targeting box
+                AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.88f, 0f),
+                    new Vector3(0.12f, 0.06f, 0.08f), accentCol);
+                break;
+
+            case DefenseType.PlasmaGun:
+                // Energy coil barrel
+                AddBarrel(parent, new Vector3(0f, 0.7f, 0.3f), new Vector3(0.12f, 0.22f, 0.12f), col * 0.5f);
+                // Glowing core
+                GameObject core = AddDecor(parent, PrimitiveType.Sphere, new Vector3(0f, 0.7f, 0.18f),
+                    new Vector3(0.1f, 0.1f, 0.1f), accentCol);
+                core.GetComponent<Renderer>().material = MakeGlowMat(accentCol, 3f);
+                // Side capacitors
+                for (int i = 0; i < 2; i++)
+                {
+                    float side = (i == 0) ? -0.18f : 0.18f;
+                    AddDecor(parent, PrimitiveType.Cube, new Vector3(side, 0.65f, 0.1f),
+                        new Vector3(0.06f, 0.15f, 0.08f), col * 0.7f);
+                }
+                // Antenna
+                AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.95f, 0f),
+                    new Vector3(0.02f, 0.1f, 0.02f), new Color(0.3f, 0.3f, 0.3f));
+                break;
+        }
+
+        Defense def = parent.AddComponent<Defense>();
+        def.SetDefenseType(SelectedDefenseType);
+        CancelBuild();
+    }
+
+    void AddBarrel(GameObject parent, Vector3 pos, Vector3 scale, Color color)
+    {
         GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         barrel.transform.SetParent(parent.transform);
-        barrel.transform.localPosition = new Vector3(0f, 0.7f, 0.35f);
+        barrel.transform.localPosition = pos;
         barrel.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
-        barrel.transform.localScale = new Vector3(0.1f, 0.3f, 0.1f);
-        barrel.GetComponent<Renderer>().material = MakeMat(col * 0.5f);
+        barrel.transform.localScale = scale;
+        barrel.name = "TurretBarrel";
+        barrel.GetComponent<Renderer>().material = MakeMat(color);
         Destroy(barrel.GetComponent<Collider>());
+    }
 
-        parent.AddComponent<Defense>();
-        CancelBuild();
+    GameObject AddDecor(GameObject parent, PrimitiveType type, Vector3 pos, Vector3 scale, Color color)
+    {
+        GameObject obj = GameObject.CreatePrimitive(type);
+        obj.transform.SetParent(parent.transform);
+        obj.transform.localPosition = pos;
+        obj.transform.localScale = scale;
+        obj.GetComponent<Renderer>().material = MakeMat(color);
+        Destroy(obj.GetComponent<Collider>());
+        return obj;
     }
 
     void PlaceMine(Vector3 position)
@@ -297,21 +401,54 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Mine.GetBuildCost()))
             return;
 
+        Color woodBrown = new Color(0.35f, 0.25f, 0.12f);
+
         GameObject parent = new GameObject("Mine");
         parent.transform.position = position;
 
+        // Foundation
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.06f, 0),
+            new Vector3(1.4f, 0.12f, 1.4f), new Color(0.3f, 0.26f, 0.18f));
+
+        // Shaft
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
         shaft.transform.SetParent(parent.transform);
-        shaft.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+        shaft.transform.localPosition = new Vector3(0f, 0.4f, 0f);
         shaft.transform.localScale = new Vector3(1.2f, 0.7f, 1.2f);
         shaft.GetComponent<Renderer>().material = MakeMat(new Color(0.35f, 0.3f, 0.2f));
 
-        GameObject roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        roof.transform.SetParent(parent.transform);
-        roof.transform.localPosition = new Vector3(0f, 0.8f, 0f);
-        roof.transform.localScale = new Vector3(1.5f, 0.15f, 1.5f);
-        roof.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.25f, 0.1f));
-        Destroy(roof.GetComponent<Collider>());
+        // Support beams
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
+            new Vector3(0.06f, 0.7f, 0.04f), woodBrown * 0.7f);
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
+            new Vector3(0.7f, 0.06f, 0.04f), woodBrown * 0.7f);
+
+        // Roof
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.82f, 0),
+            new Vector3(1.5f, 0.1f, 1.5f), woodBrown);
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.78f, 0),
+            new Vector3(1.55f, 0.04f, 1.55f), woodBrown * 0.7f);
+
+        // Mine entrance
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.3f, -0.61f),
+            new Vector3(0.35f, 0.45f, 0.02f), new Color(0.05f, 0.05f, 0.05f));
+
+        // Cart
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.9f, 0.18f, 0),
+            new Vector3(0.4f, 0.22f, 0.35f), new Color(0.4f, 0.35f, 0.3f));
+
+        // Gold pile
+        GameObject gold = AddDecor(parent, PrimitiveType.Sphere,
+            new Vector3(-0.9f, 0.35f, 0), new Vector3(0.25f, 0.15f, 0.22f), new Color(0.9f, 0.75f, 0.2f));
+        gold.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.9f, 0.75f, 0.2f), 0.8f);
+
+        // Rails
+        for (int i = 0; i < 2; i++)
+        {
+            float z = (i == 0) ? -0.12f : 0.12f;
+            AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.6f, 0.03f, z),
+                new Vector3(1.2f, 0.03f, 0.04f), new Color(0.35f, 0.3f, 0.3f));
+        }
 
         parent.AddComponent<Mine>();
         CancelBuild();
@@ -330,20 +467,39 @@ public class BuildingSystem : MonoBehaviour
         if (dir != Vector3.zero)
             parent.transform.forward = dir;
 
+        Color wallStone = new Color(0.5f, 0.45f, 0.38f);
+
+        // Wall base
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.1f, 0f),
+            new Vector3(2.3f, 0.2f, 0.5f), wallStone * 0.8f);
+
+        // Main body
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
         body.transform.SetParent(parent.transform);
-        body.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+        body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
         body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
-        body.GetComponent<Renderer>().material = MakeMat(new Color(0.5f, 0.45f, 0.38f));
+        body.GetComponent<Renderer>().material = MakeMat(wallStone);
 
+        // Top trim
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 1.35f, 0f),
+            new Vector3(2.3f, 0.1f, 0.45f), wallStone * 0.9f);
+
+        // Crenellations
         for (int c = -1; c <= 1; c++)
         {
-            GameObject m = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            m.transform.SetParent(parent.transform);
-            m.transform.localPosition = new Vector3(c * 0.7f, 1.45f, 0f);
-            m.transform.localScale = new Vector3(0.35f, 0.35f, 0.45f);
-            m.GetComponent<Renderer>().material = MakeMat(new Color(0.48f, 0.43f, 0.35f));
-            Destroy(m.GetComponent<Collider>());
+            AddDecor(parent, PrimitiveType.Cube, new Vector3(c * 0.7f, 1.6f, 0f),
+                new Vector3(0.4f, 0.4f, 0.5f), new Color(0.48f, 0.43f, 0.35f));
+        }
+
+        // Arrow slit
+        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, -0.21f),
+            new Vector3(0.06f, 0.22f, 0.02f), new Color(0.08f, 0.08f, 0.1f));
+
+        // Stone texture lines
+        for (int row = 0; row < 3; row++)
+        {
+            AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.3f + row * 0.35f, -0.21f),
+                new Vector3(2.22f, 0.02f, 0.01f), wallStone * 0.7f);
         }
 
         parent.AddComponent<Wall>();
@@ -367,9 +523,21 @@ public class BuildingSystem : MonoBehaviour
         switch (type)
         {
             case DefenseType.Gun: return new Color(0.4f, 0.4f, 0.4f);
-            case DefenseType.Crossbow: return new Color(0.6f, 0.4f, 0.2f);
-            case DefenseType.RocketLauncher: return new Color(0.3f, 0.5f, 0.3f);
-            case DefenseType.PlasmaGun: return new Color(0.3f, 0.3f, 0.9f);
+            case DefenseType.Crossbow: return new Color(0.55f, 0.38f, 0.18f);
+            case DefenseType.RocketLauncher: return new Color(0.3f, 0.45f, 0.28f);
+            case DefenseType.PlasmaGun: return new Color(0.25f, 0.3f, 0.7f);
+            default: return Color.white;
+        }
+    }
+
+    Color GetDefenseAccent(DefenseType type)
+    {
+        switch (type)
+        {
+            case DefenseType.Gun: return new Color(0.8f, 0.7f, 0.2f);
+            case DefenseType.Crossbow: return new Color(0.7f, 0.5f, 0.3f);
+            case DefenseType.RocketLauncher: return new Color(0.8f, 0.2f, 0.1f);
+            case DefenseType.PlasmaGun: return new Color(0.3f, 0.5f, 1f);
             default: return Color.white;
         }
     }

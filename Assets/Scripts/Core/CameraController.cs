@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 public class CameraController : MonoBehaviour
 {
     [SerializeField] private float zoomSpeed = 5f;
-    [SerializeField] private float minFov = 30f;
-    [SerializeField] private float maxFov = 80f;
+    [SerializeField] private float minFov = 25f;
+    [SerializeField] private float maxFov = 90f;
 
     private Camera cam;
 
@@ -14,7 +14,8 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        transform.position = new Vector3(0f, 35f, -8f);
+        // 50% further back from original (0, 35, -8)
+        transform.position = new Vector3(0f, 52f, -19f);
         transform.eulerAngles = new Vector3(58f, 0f, 0f);
 
         if (cam != null)

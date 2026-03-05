@@ -10,12 +10,11 @@ public enum DefenseType
 
 public class Defense : MonoBehaviour
 {
-    [SerializeField] protected DefenseType defenseType;
-    [SerializeField] protected float damage = 10f;
-    [SerializeField] protected float fireRate = 1f;
-    [SerializeField] protected float range = 15f;
-    [SerializeField] protected int upgradeCost = 50;
-    [SerializeField] protected GameObject projectilePrefab;
+    protected DefenseType defenseType;
+    protected float damage = 10f;
+    protected float fireRate = 1f;
+    protected float range = 15f;
+    protected int upgradeCost = 50;
 
     public DefenseType Type => defenseType;
     public int Level { get; protected set; } = 1;
@@ -23,6 +22,43 @@ public class Defense : MonoBehaviour
 
     protected float fireCooldown;
     protected Transform currentTarget;
+    private Transform headTransform;
+    private Transform barrelTransform;
+
+    public void SetDefenseType(DefenseType type)
+    {
+        defenseType = type;
+        ApplyTypeStats();
+    }
+
+    void ApplyTypeStats()
+    {
+        switch (defenseType)
+        {
+            case DefenseType.Gun:
+                damage = 8f; fireRate = 3.5f; range = 12f; upgradeCost = 40;
+                break;
+            case DefenseType.Crossbow:
+                damage = 18f; fireRate = 1.2f; range = 20f; upgradeCost = 35;
+                break;
+            case DefenseType.RocketLauncher:
+                damage = 50f; fireRate = 0.4f; range = 22f; upgradeCost = 80;
+                break;
+            case DefenseType.PlasmaGun:
+                damage = 30f; fireRate = 1.8f; range = 16f; upgradeCost = 100;
+                break;
+        }
+    }
+
+    void Start()
+    {
+        // Find the head/barrel for aiming (tagged by name during creation)
+        foreach (Transform child in GetComponentsInChildren<Transform>())
+        {
+            if (child.name == "TurretHead") headTransform = child;
+            if (child.name == "TurretBarrel") barrelTransform = child;
+        }
+    }
 
     void Update()
     {
@@ -32,9 +68,7 @@ public class Defense : MonoBehaviour
         fireCooldown -= Time.deltaTime;
 
         if (currentTarget == null || !IsTargetInRange(currentTarget))
-        {
             FindTarget();
-        }
 
         if (currentTarget != null && fireCooldown <= 0f)
         {
@@ -43,9 +77,7 @@ public class Defense : MonoBehaviour
         }
 
         if (currentTarget != null)
-        {
             LookAtTarget();
-        }
     }
 
     protected virtual void FindTarget()
@@ -72,6 +104,8 @@ public class Defense : MonoBehaviour
     protected bool IsTargetInRange(Transform target)
     {
         if (target == null) return false;
+        Enemy e = target.GetComponent<Enemy>();
+        if (e != null && e.IsDead) return false;
         return Vector3.Distance(transform.position, target.position) <= range;
     }
 
@@ -79,26 +113,62 @@ public class Defense : MonoBehaviour
     {
         Vector3 dir = currentTarget.position - transform.position;
         dir.y = 0;
-        if (dir != Vector3.zero)
-            transform.rotation = Quaternion.LookRotation(dir);
+        if (dir == Vector3.zero) return;
+
+        Quaternion lookRot = Quaternion.LookRotation(dir);
+
+        // Rotate head smoothly if we have one, otherwise rotate whole turret
+        if (headTransform != null)
+            headTransform.rotation = Quaternion.Slerp(headTransform.rotation, lookRot, Time.deltaTime * 8f);
+        else
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 8f);
     }
 
     protected virtual void Fire()
     {
-        if (projectilePrefab != null && currentTarget != null)
+        if (currentTarget == null) return;
+
+        Vector3 spawnPos = barrelTransform != null
+            ? barrelTransform.position + barrelTransform.forward * 0.3f
+            : transform.position + Vector3.up * 0.7f + transform.forward * 0.35f;
+
+        GameObject projObj = new GameObject("Projectile_" + defenseType);
+        projObj.transform.position = spawnPos;
+        Projectile p = projObj.AddComponent<Projectile>();
+        p.Init(currentTarget, damage, defenseType);
+
+        // Muzzle flash
+        SpawnMuzzleFlash(spawnPos);
+    }
+
+    void SpawnMuzzleFlash(Vector3 pos)
+    {
+        Color flashColor;
+        float flashSize;
+        switch (defenseType)
         {
-            GameObject proj = Instantiate(projectilePrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
-            Projectile p = proj.GetComponent<Projectile>();
-            if (p != null)
-                p.Init(currentTarget, damage);
+            case DefenseType.Gun:
+                flashColor = new Color(1f, 0.9f, 0.3f); flashSize = 0.15f; break;
+            case DefenseType.Crossbow:
+                return; // No flash for crossbow
+            case DefenseType.RocketLauncher:
+                flashColor = new Color(1f, 0.5f, 0.1f); flashSize = 0.3f; break;
+            case DefenseType.PlasmaGun:
+                flashColor = new Color(0.3f, 0.5f, 1f); flashSize = 0.25f; break;
+            default:
+                flashColor = Color.yellow; flashSize = 0.15f; break;
         }
-        else if (currentTarget != null)
-        {
-            // Direct damage if no projectile
-            Enemy enemy = currentTarget.GetComponent<Enemy>();
-            if (enemy != null)
-                enemy.TakeDamage(damage);
-        }
+
+        GameObject flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        flash.transform.position = pos;
+        flash.transform.localScale = Vector3.one * flashSize;
+        Destroy(flash.GetComponent<Collider>());
+        Material m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        m.color = flashColor;
+        m.EnableKeyword("_EMISSION");
+        m.SetColor("_EmissionColor", flashColor * 5f);
+        flash.GetComponent<Renderer>().material = m;
+        Destroy(flash, 0.08f);
     }
 
     public virtual void Upgrade()
