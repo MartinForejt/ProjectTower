@@ -37,15 +37,24 @@ public class GameHUD : MonoBehaviour
 
     void OnGUI()
     {
+        GUI.matrix = Matrix4x4.identity;
         if (GameManager.Instance == null) return;
         if (GameManager.Instance.CurrentState == GameState.MainMenu) return;
         InitStyles();
 
-        scale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        float screenW = Screen.width;
+        float screenH = Screen.height;
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            screenW = cam.pixelWidth;
+            screenH = cam.pixelHeight;
+        }
+        scale = Mathf.Min(screenW / 1920f, screenH / 1080f);
         if (scale < 0.01f) scale = 1f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-        float sw = Screen.width / scale;
-        float sh = Screen.height / scale;
+        float sw = screenW / scale;
+        float sh = screenH / scale;
 
         GameState state = GameManager.Instance.CurrentState;
 
@@ -73,6 +82,16 @@ public class GameHUD : MonoBehaviour
         GUIStyle coinStyle = new GUIStyle(headerStyle) { alignment = TextAnchor.MiddleLeft };
         coinStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
         GUI.Label(new Rect(220, 10, 200, 32), $"Gold: {coins}", coinStyle);
+
+        GUIStyle infoStyle = new GUIStyle(labelStyle) { fontSize = 12, alignment = TextAnchor.MiddleLeft };
+        infoStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+        string topInfo = "";
+        if (Mine.Instance != null)
+            topInfo += $"+{Mine.Instance.CoinPerTick}g/{Mine.Instance.TickInterval:F1}s";
+        int tCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
+        if (topInfo.Length > 0) topInfo += "  ";
+        topInfo += $"Turrets: {tCount}/{BuildingSystem.MAX_TOWER_DEFENSES}";
+        GUI.Label(new Rect(220, 34, 280, 18), topInfo, infoStyle);
 
         if (WaveManager.Instance != null)
         {

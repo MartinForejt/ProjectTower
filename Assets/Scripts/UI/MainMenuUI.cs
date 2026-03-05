@@ -17,14 +17,23 @@ public class MainMenuUI : MonoBehaviour
 
     void OnGUI()
     {
+        GUI.matrix = Matrix4x4.identity;
         if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.MainMenu)
             return;
 
-        scale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        float screenW = Screen.width;
+        float screenH = Screen.height;
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            screenW = cam.pixelWidth;
+            screenH = cam.pixelHeight;
+        }
+        scale = Mathf.Min(screenW / 1920f, screenH / 1080f);
         if (scale < 0.01f) scale = 1f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-        float sw = Screen.width / scale;
-        float sh = Screen.height / scale;
+        float sw = screenW / scale;
+        float sh = screenH / scale;
 
         GUI.DrawTexture(new Rect(0, 0, sw, sh), bgTex);
 
