@@ -433,6 +433,10 @@ public class Projectile : MonoBehaviour
             Destroy(smoke, Random.Range(0.4f, 0.8f));
         }
 
+        // Damage terrain voxels
+        if (TerrainSystem.Instance != null)
+            TerrainSystem.Instance.DamageAt(transform.position, isRocket ? 1.5f : 1.0f);
+
         // Ground scorch mark
         GameObject scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         scorch.transform.position = new Vector3(transform.position.x, 0.02f, transform.position.z);

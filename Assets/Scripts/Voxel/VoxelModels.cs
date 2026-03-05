@@ -2,7 +2,7 @@ using UnityEngine;
 
 public static class VoxelModels
 {
-    static Color Vary(Color c, float amount = 0.04f)
+    public static Color Vary(Color c, float amount = 0.04f)
     {
         return new Color(
             c.r + Random.Range(-amount, amount),
@@ -658,128 +658,6 @@ public static class VoxelModels
 
         ApplyVariation(d, 0.03f);
         return d;
-    }
-
-    // ============ GROUND TERRAIN (160x8x140, voxelSize 1.0) ============
-    public static VoxelData CreateGroundTerrain()
-    {
-        int w = 160, h = 8, d = 140;
-        var data = new VoxelData(w, h, d);
-
-        Color dirt = new Color(0.40f, 0.28f, 0.14f);
-        Color dirtD = new Color(0.32f, 0.22f, 0.10f);
-        Color stone = new Color(0.45f, 0.43f, 0.40f);
-
-        for (int x = 0; x < w; x++)
-        for (int z = 0; z < d; z++)
-        {
-            float wx = x - 80f;
-            float wz = z - 70f;
-
-            // Height from Perlin noise — rolling hills
-            float h1 = Mathf.PerlinNoise(wx * 0.02f + 100f, wz * 0.02f + 100f);
-            float h2 = Mathf.PerlinNoise(wx * 0.06f + 50f, wz * 0.06f + 50f) * 0.35f;
-            float heightNoise = h1 + h2;
-            int surfaceH = 1 + Mathf.FloorToInt(heightNoise * 4f);
-
-            float towerDist = Mathf.Sqrt(wx * wx + (wz - 18f) * (wz - 18f));
-
-            // Flatten near tower
-            if (towerDist < 10f)
-                surfaceH = 2;
-            else if (towerDist < 15f)
-                surfaceH = Mathf.Min(surfaceH, 3);
-
-            surfaceH = Mathf.Clamp(surfaceH, 1, 6);
-
-            // Surface color by biome
-            Color surface = GroundBiomeColor(wx, wz, heightNoise, towerDist);
-
-            // Fill column
-            for (int y = 0; y < surfaceH; y++)
-            {
-                if (y == surfaceH - 1)
-                    data.Set(x, y, z, surface);
-                else if (y == surfaceH - 2 && surfaceH > 2)
-                    data.Set(x, y, z, dirt);
-                else
-                    data.Set(x, y, z, y < 1 ? stone : dirtD);
-            }
-        }
-
-        ApplyVariation(data, 0.02f);
-        return data;
-    }
-
-    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist)
-    {
-        // Vibrant voxel-style colors
-        Color grassBright = new Color(0.22f, 0.55f, 0.12f);
-        Color grassDark = new Color(0.14f, 0.38f, 0.08f);
-        Color grassYellow = new Color(0.45f, 0.50f, 0.15f);
-        Color dirtPath = new Color(0.48f, 0.35f, 0.18f);
-        Color gravel = new Color(0.48f, 0.45f, 0.40f);
-        Color forestFloor = new Color(0.10f, 0.25f, 0.06f);
-        Color scorched = new Color(0.22f, 0.18f, 0.12f);
-        Color sand = new Color(0.65f, 0.58f, 0.38f);
-
-        float bn = Mathf.PerlinNoise(wx * 0.1f + 800f, wz * 0.1f + 800f) * 6f - 3f;
-        float mix = Mathf.PerlinNoise(wx * 0.15f + 900f, wz * 0.15f + 900f);
-
-        // Gravel ring around tower
-        if (towerDist < 6f)
-            return Color.Lerp(gravel, dirtPath, mix);
-
-        // Stone patches
-        float stoneN = Mathf.PerlinNoise(wx * 0.2f + 600f, wz * 0.2f + 600f);
-        if (stoneN > 0.78f)
-            return Color.Lerp(new Color(0.50f, 0.48f, 0.44f), gravel, mix);
-
-        // Puddles
-        float puddleN = Mathf.PerlinNoise(wx * 0.12f + 400f, wz * 0.12f + 400f);
-        if (puddleN > 0.78f && towerDist > 8f)
-            return new Color(0.08f, 0.15f, 0.28f);
-
-        // Flower patches
-        float flowerN = Mathf.PerlinNoise(wx * 0.18f + 500f, wz * 0.18f + 500f);
-        if (flowerN > 0.82f && towerDist > 10f)
-        {
-            Color[] flowers = {
-                new Color(0.85f, 0.20f, 0.20f),
-                new Color(0.90f, 0.80f, 0.15f),
-                new Color(0.65f, 0.25f, 0.70f),
-                new Color(0.95f, 0.55f, 0.15f)
-            };
-            return flowers[(Mathf.Abs((int)wx) + Mathf.Abs((int)wz)) % flowers.Length];
-        }
-
-        // Distance-based biome rings (circular around tower since 360 spawn)
-        if (towerDist < 12f)
-            return Color.Lerp(grassBright, grassDark, mix);
-
-        if (towerDist + bn < 25f)
-            return Color.Lerp(grassBright, grassYellow, mix * 0.5f);
-
-        if (towerDist + bn < 40f)
-        {
-            // Mid-field — mix of grass and scorched
-            float bf = Mathf.PerlinNoise(wx * 0.08f + 200f, wz * 0.08f + 200f);
-            if (bf > 0.55f)
-                return Color.Lerp(scorched, grassDark, mix * 0.3f);
-            return Color.Lerp(grassDark, grassYellow, mix);
-        }
-
-        if (towerDist + bn < 55f)
-        {
-            // Outer ring — dry and sandy
-            float t = Mathf.PerlinNoise(wx * 0.06f + 300f, wz * 0.06f + 300f);
-            if (t > 0.5f)
-                return Color.Lerp(grassYellow, sand, mix * 0.5f);
-            return Color.Lerp(dirtPath, grassYellow, mix);
-        }
-
-        // Far edges — forest / dark
-        return Color.Lerp(forestFloor, grassDark, mix);
     }
 
     // ============ HELPER: Spawn a VoxelObject from data ============

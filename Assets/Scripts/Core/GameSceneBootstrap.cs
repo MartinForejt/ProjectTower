@@ -42,7 +42,7 @@ public class GameSceneBootstrap : MonoBehaviour
 
     void CreateGround()
     {
-        // Invisible ground plane for raycasts only
+        // Invisible ground plane for building system raycasts
         GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
         ground.name = "Ground";
         ground.transform.position = Vector3.zero;
@@ -50,9 +50,10 @@ public class GameSceneBootstrap : MonoBehaviour
         ground.layer = LayerMask.NameToLayer("Default");
         ground.GetComponent<Renderer>().enabled = false;
 
-        // 3D voxel terrain (160x8x140 at vs=1.0, covers -80..+80 X, -70..+70 Z)
-        VoxelData terrain = VoxelModels.CreateGroundTerrain();
-        VoxelModels.Spawn(terrain, 1f, new Vector3(-80f, -1f, -70f), "VoxelTerrain");
+        // Chunked voxel terrain (8x7 chunks, vs=0.4, with MeshColliders)
+        GameObject terrainObj = new GameObject("TerrainSystem");
+        TerrainSystem ts = terrainObj.AddComponent<TerrainSystem>();
+        ts.Generate();
     }
 
     void CreateForest()
@@ -185,13 +186,26 @@ public class GameSceneBootstrap : MonoBehaviour
 
     void CreateAtmosphericLights()
     {
+        // Main directional sun with shadows
+        GameObject sunObj = new GameObject("Sun");
+        sunObj.transform.eulerAngles = new Vector3(50f, -30f, 0f);
+        Light sun = sunObj.AddComponent<Light>();
+        sun.type = LightType.Directional;
+        sun.color = new Color(1f, 0.95f, 0.85f);
+        sun.intensity = 1.1f;
+        sun.shadows = LightShadows.Soft;
+        sun.shadowStrength = 0.6f;
+        sun.shadowBias = 0.05f;
+        sun.shadowNormalBias = 0.4f;
+
+        // Cool fill light from opposite side
         GameObject fillObj = new GameObject("FillLight");
-        fillObj.transform.position = new Vector3(0f, 15f, -30f);
+        fillObj.transform.position = new Vector3(0f, 20f, -30f);
         fillObj.transform.LookAt(TowerPos);
         Light fill = fillObj.AddComponent<Light>();
         fill.type = LightType.Point;
-        fill.color = new Color(0.4f, 0.5f, 0.7f);
-        fill.range = 80f;
-        fill.intensity = 0.5f;
+        fill.color = new Color(0.35f, 0.45f, 0.7f);
+        fill.range = 100f;
+        fill.intensity = 0.3f;
     }
 }
