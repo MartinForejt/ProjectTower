@@ -1,5 +1,7 @@
 using UnityEngine;
 
+public enum EnemyType { Warrior, Scout, Tank, Archer }
+
 public class Enemy : MonoBehaviour
 {
     [SerializeField] private float baseHealth = 50f;
@@ -29,7 +31,14 @@ public class Enemy : MonoBehaviour
     private VoxelObject voxelObject;
     private float flashTimer;
 
-    public void Init(float difficultyMultiplier, bool isBoss)
+    public EnemyType Type { get; private set; }
+    private Transform leftLegPivot, rightLegPivot, leftArmPivot, rightArmPivot;
+    private float walkCycle;
+    private float animSpeed = 8f;
+    private bool isMoving;
+    private float archerAttackRange = 15f;
+
+    public void Init(float difficultyMultiplier, bool isBoss, EnemyType type = EnemyType.Warrior)
     {
         IsBoss = isBoss;
 
@@ -58,6 +67,32 @@ public class Enemy : MonoBehaviour
             target = Tower.Instance.transform;
 
         voxelObject = GetComponentInChildren<VoxelObject>();
+
+        Type = type;
+        switch (type)
+        {
+            case EnemyType.Scout:
+                MaxHealth *= 0.5f; Health = MaxHealth;
+                moveSpeed *= 1.6f; attackDamage *= 0.6f; coinReward = Mathf.RoundToInt(coinReward * 0.6f);
+                animSpeed = 12f;
+                break;
+            case EnemyType.Tank:
+                MaxHealth *= 2.5f; Health = MaxHealth;
+                moveSpeed *= 0.5f; attackDamage *= 1.8f; coinReward = Mathf.RoundToInt(coinReward * 2f);
+                animSpeed = 5f;
+                break;
+            case EnemyType.Archer:
+                MaxHealth *= 0.7f; Health = MaxHealth;
+                moveSpeed *= 0.8f; attackDamage *= 0.7f; coinReward = Mathf.RoundToInt(coinReward * 1.3f);
+                animSpeed = 7f;
+                break;
+        }
+    }
+
+    public void SetLimbs(Transform ll, Transform rl, Transform la, Transform ra)
+    {
+        leftLegPivot = ll; rightLegPivot = rl;
+        leftArmPivot = la; rightArmPivot = ra;
     }
 
     void Update()
@@ -79,10 +114,14 @@ public class Enemy : MonoBehaviour
                 RestoreColors();
         }
 
+        // Walking animation
+        AnimateLimbs();
+
         float distToTarget = Vector3.Distance(transform.position, target.position);
 
         // Check for walls blocking path
-        if (distToTarget > 3f)
+        float stopDist = (Type == EnemyType.Archer) ? archerAttackRange : 3f;
+        if (distToTarget > stopDist)
         {
             Vector3 dir = (target.position - transform.position).normalized;
             dir.y = 0;
@@ -109,6 +148,10 @@ public class Enemy : MonoBehaviour
         {
             AttackTower();
         }
+
+        // Archer ranged attack
+        if (Type == EnemyType.Archer && distToTarget <= archerAttackRange && distToTarget > 3f)
+            AttackTower();
 
         if (IsBoss)
             UpdateBossAbilities();
@@ -270,6 +313,33 @@ public class Enemy : MonoBehaviour
             SoundManager.Instance.PlayEnemyDeath(transform.position);
 
         Destroy(gameObject, 0.1f);
+    }
+
+    void AnimateLimbs()
+    {
+        if (leftLegPivot == null) return;
+
+        Vector3 vel = target != null ? (target.position - transform.position).normalized * moveSpeed : Vector3.zero;
+        isMoving = vel.sqrMagnitude > 0.1f && !IsDead;
+
+        if (isMoving)
+        {
+            walkCycle += Time.deltaTime * animSpeed;
+            float legAngle = Mathf.Sin(walkCycle) * 30f;
+            float armAngle = Mathf.Sin(walkCycle + Mathf.PI) * 20f;
+
+            leftLegPivot.localEulerAngles = new Vector3(legAngle, 0, 0);
+            rightLegPivot.localEulerAngles = new Vector3(-legAngle, 0, 0);
+            leftArmPivot.localEulerAngles = new Vector3(armAngle, 0, 0);
+            rightArmPivot.localEulerAngles = new Vector3(-armAngle, 0, 0);
+        }
+        else
+        {
+            if (leftLegPivot != null) leftLegPivot.localEulerAngles = Vector3.zero;
+            if (rightLegPivot != null) rightLegPivot.localEulerAngles = Vector3.zero;
+            if (leftArmPivot != null) leftArmPivot.localEulerAngles = Vector3.zero;
+            if (rightArmPivot != null) rightArmPivot.localEulerAngles = Vector3.zero;
+        }
     }
 
     void SpawnBloodAndGore()

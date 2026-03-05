@@ -44,6 +44,8 @@ public class Defense : MonoBehaviour
     private float orbitHeight;
     private float orbitSpeed;
 
+    private static System.Collections.Generic.List<Defense> allDefenses = new System.Collections.Generic.List<Defense>();
+
     public void InitTowerMount(DefenseType type, float startAngle, float height, int level)
     {
         defenseType = type;
@@ -101,6 +103,8 @@ public class Defense : MonoBehaviour
 
     void Start()
     {
+        allDefenses.Add(this);
+
         foreach (Transform child in GetComponentsInChildren<Transform>())
         {
             if (child.name == "TurretHead")
@@ -111,6 +115,11 @@ public class Defense : MonoBehaviour
         }
         if (headTransform != null)
             headOriginalLocalPos = headTransform.localPosition;
+    }
+
+    void OnDestroy()
+    {
+        allDefenses.Remove(this);
     }
 
     void Update()
@@ -167,21 +176,49 @@ public class Defense : MonoBehaviour
 
     protected virtual void FindTarget()
     {
-        float closestDist = range;
         currentTarget = null;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, range);
+
+        // Collect all valid enemies in range
+        var candidates = new System.Collections.Generic.List<(Transform t, float dist)>();
         foreach (var hit in hits)
         {
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null && !enemy.IsDead)
             {
                 float dist = Vector3.Distance(transform.position, hit.transform.position);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    currentTarget = hit.transform;
-                }
+                if (dist <= range)
+                    candidates.Add((hit.transform, dist));
+            }
+        }
+
+        if (candidates.Count == 0) return;
+
+        // If only 1 enemy, all turrets attack it
+        if (candidates.Count == 1)
+        {
+            currentTarget = candidates[0].t;
+            return;
+        }
+
+        // Score each candidate: prefer closer enemies, penalize already-targeted ones
+        float bestScore = float.MaxValue;
+        foreach (var (t, dist) in candidates)
+        {
+            int targetedByCount = 0;
+            for (int i = 0; i < allDefenses.Count; i++)
+            {
+                Defense other = allDefenses[i];
+                if (other != this && other.currentTarget == t)
+                    targetedByCount++;
+            }
+
+            float score = dist + (targetedByCount * 8f);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                currentTarget = t;
             }
         }
     }

@@ -243,7 +243,7 @@ public static class VoxelModels
     }
 
     // ============ ENEMY (12x20x8 normal, voxelSize 0.075) ============
-    public static VoxelData CreateEnemy(bool isBoss)
+    public static VoxelData CreateEnemy(bool isBoss, EnemyType type = EnemyType.Warrior)
     {
         int scale = isBoss ? 2 : 1;
         int w = 12 * scale, h = 20 * scale, dep = 8 * scale;
@@ -259,6 +259,28 @@ public static class VoxelModels
         Color boots = new Color(0.2f, 0.14f, 0.08f);
         Color belt = new Color(0.25f, 0.15f, 0.08f);
         Color buckle = new Color(0.7f, 0.6f, 0.2f);
+
+        // Type-based color themes
+        switch (type)
+        {
+            case EnemyType.Scout:
+                armor = Vary(new Color(0.25f, 0.35f, 0.18f), 0.03f);
+                armorD = new Color(armor.r * 0.7f, armor.g * 0.7f, armor.b * 0.7f);
+                eyes = new Color(0.2f, 0.9f, 0.2f);
+                break;
+            case EnemyType.Tank:
+                armor = Vary(new Color(0.22f, 0.22f, 0.25f), 0.03f);
+                armorD = new Color(armor.r * 0.6f, armor.g * 0.6f, armor.b * 0.6f);
+                eyes = new Color(1f, 0.5f, 0.1f);
+                buckle = new Color(0.5f, 0.5f, 0.55f);
+                break;
+            case EnemyType.Archer:
+                armor = Vary(new Color(0.2f, 0.25f, 0.4f), 0.03f);
+                armorD = new Color(armor.r * 0.7f, armor.g * 0.7f, armor.b * 0.7f);
+                eyes = new Color(0.3f, 0.5f, 1f);
+                weapon = new Color(0.35f, 0.25f, 0.12f); // bow instead of sword
+                break;
+        }
 
         int cx = w / 2, cz = dep / 2;
         int s = scale;

@@ -295,20 +295,21 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(panelX + 10, btnY + btnH - 2, panelW - 30, 14), mineInfo, mineDetail);
         }
 
-        // Wall auto-place button
+        // Wall buy button
         if (BuildingSystem.Instance != null)
         {
-            int wallCount = BuildingSystem.Instance.WallCount;
-            int wallMax = BuildingSystem.Instance.WallMaxSlots;
-            string wallLabel = wallCount < wallMax
-                ? $"Wall ({Wall.GetBuildCost()}g) [{wallCount}/{wallMax}]"
-                : $"Wall [FULL {wallMax}/{wallMax}]";
+            bool hasWall = BuildingSystem.Instance.HasWall;
+            string wallLabel = hasWall
+                ? "Wall [BUILT]"
+                : $"Wall ({Wall.GetBuyCost()}g)";
 
+            GUI.enabled = !hasWall;
             if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH), wallLabel, smallButtonStyle))
             {
-                if (wallCount < wallMax)
-                    BuildingSystem.Instance.AutoPlaceWall();
+                if (!hasWall)
+                    BuildingSystem.Instance.BuyWall();
             }
+            GUI.enabled = true;
         }
 
         btnY += spacing * 2 + 10;
@@ -347,14 +348,14 @@ public class GameHUD : MonoBehaviour
         }
 
         // Wall upgrade button
-        if (BuildingSystem.Instance != null && BuildingSystem.Instance.WallCount > 0)
+        if (BuildingSystem.Instance != null && BuildingSystem.Instance.HasWall)
         {
             int wallLvl = BuildingSystem.Instance.WallLevel;
-            int wallUpCost = Wall.GetUpgradeCost(wallLvl);
-            string shieldNote = wallLvl >= 11 ? " +Shield@12" : "";
+            int wallUpCost = Wall.Instance.GetUpgradeCost();
+            string shieldNote = wallLvl >= 4 ? " +Shield@5" : "";
             if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 3, panelW - 20, btnH),
-                $"Walls Lv{wallLvl} ({wallUpCost}g){shieldNote}", smallButtonStyle))
-                BuildingSystem.Instance.UpgradeAllWalls();
+                $"Wall Lv{wallLvl} ({wallUpCost}g){shieldNote}", smallButtonStyle))
+                BuildingSystem.Instance.UpgradeWall();
         }
 
     }

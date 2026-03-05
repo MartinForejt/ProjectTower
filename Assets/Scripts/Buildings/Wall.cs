@@ -1,8 +1,11 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Wall : MonoBehaviour
 {
-    [SerializeField] private float baseHealth = 200f;
+    public static Wall Instance { get; private set; }
+
+    [SerializeField] private float baseHealth = 800f;
 
     public float Health { get; private set; }
     public float MaxHealth { get; private set; }
@@ -12,22 +15,29 @@ public class Wall : MonoBehaviour
     public float MaxShield { get; private set; }
     public bool IsDestroyed { get; private set; }
 
-    public event System.Action<float, float> OnHealthChanged;
+    private List<VoxelObject> segments = new List<VoxelObject>();
 
-    private VoxelObject voxelObject;
+    void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+    }
 
     void Start()
     {
         MaxHealth = baseHealth;
         Health = MaxHealth;
-        voxelObject = GetComponentInChildren<VoxelObject>();
+    }
+
+    public void RegisterSegment(VoxelObject vo)
+    {
+        if (vo != null) segments.Add(vo);
     }
 
     public void TakeDamage(float damage)
     {
         if (IsDestroyed) return;
 
-        // Shield absorbs first
         if (HasShield && Shield > 0)
         {
             float shieldDmg = Mathf.Min(Shield, damage);
@@ -36,14 +46,17 @@ public class Wall : MonoBehaviour
         }
 
         Health -= damage;
-        OnHealthChanged?.Invoke(Health, MaxHealth);
 
-        // Chip voxels on hit
-        if (voxelObject != null)
+        // Chip random segment
+        if (segments.Count > 0)
         {
-            Vector3 hitPoint = transform.position + Random.insideUnitSphere * 0.5f;
-            hitPoint.y = Mathf.Max(0.1f, hitPoint.y);
-            voxelObject.DamageAt(hitPoint, 0.3f);
+            VoxelObject seg = segments[Random.Range(0, segments.Count)];
+            if (seg != null)
+            {
+                Vector3 hitPt = seg.transform.position + Random.insideUnitSphere * 0.5f;
+                hitPt.y = Mathf.Max(0.1f, hitPt.y);
+                seg.DamageAt(hitPt, 0.3f);
+            }
         }
 
         if (Health <= 0)
@@ -57,39 +70,54 @@ public class Wall : MonoBehaviour
     {
         IsDestroyed = true;
 
-        // Notify BuildingSystem to free the slot
+        // Explode all segments
+        foreach (var seg in segments)
+        {
+            if (seg != null)
+                seg.Explode(8f);
+        }
+
         if (BuildingSystem.Instance != null)
-            BuildingSystem.Instance.OnWallDestroyed(this);
+            BuildingSystem.Instance.OnWallDestroyed();
 
-        // Voxel explosion
-        if (voxelObject != null)
-            voxelObject.Explode(8f);
-
-        Destroy(gameObject, 0.1f);
+        Destroy(gameObject, 0.2f);
     }
 
-    public void UpgradeWall(int newLevel)
+    public void Upgrade()
     {
-        Level = newLevel;
-        MaxHealth = baseHealth + (Level - 1) * 100f;
+        int cost = GetUpgradeCost();
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
+            return;
+
+        Level++;
+        MaxHealth = baseHealth + (Level - 1) * 200f;
         Health = MaxHealth;
 
-        // Shield at level 12
-        if (Level >= 12 && !HasShield)
+        if (Level >= 5 && !HasShield)
         {
             HasShield = true;
-            MaxShield = 200f;
+            MaxShield = 150f;
             Shield = MaxShield;
         }
         else if (HasShield)
         {
-            MaxShield = 200f + (Level - 12) * 50f;
+            MaxShield = 150f + (Level - 5) * 50f;
             Shield = MaxShield;
         }
-
-        OnHealthChanged?.Invoke(Health, MaxHealth);
     }
 
-    public static int GetBuildCost() => 80;
-    public static int GetUpgradeCost(int currentLevel) => 60 + currentLevel * 40;
+    public void RegenerateShield()
+    {
+        if (HasShield && !IsDestroyed)
+            Shield = MaxShield;
+    }
+
+    public int GetUpgradeCost() => 150 + Level * 100;
+
+    public static int GetBuyCost() => 1000;
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 }
