@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CameraController : MonoBehaviour
 {
@@ -13,8 +14,6 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        // Tower at (0, 0, 18). Camera elevated and south, looking north and down.
-        // Wide FOV to see tower at top, walls in middle, and battlefield below.
         transform.position = new Vector3(0f, 35f, -8f);
         transform.eulerAngles = new Vector3(58f, 0f, 0f);
 
@@ -24,10 +23,11 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
-        if (scroll != 0f && cam != null)
+        if (cam == null || Mouse.current == null) return;
+        float scroll = Mouse.current.scroll.ReadValue().y;
+        if (scroll != 0f)
         {
-            cam.fieldOfView -= scroll * zoomSpeed;
+            cam.fieldOfView -= scroll * zoomSpeed * 0.01f;
             cam.fieldOfView = Mathf.Clamp(cam.fieldOfView, minFov, maxFov);
         }
     }

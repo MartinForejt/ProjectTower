@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public enum BuildMode
 {
@@ -38,25 +39,30 @@ public class BuildingSystem : MonoBehaviour
         if (CurrentMode == BuildMode.None) return;
         if (Camera.main == null) return;
 
+        var mouse = Mouse.current;
+        var keyboard = Keyboard.current;
+        if (mouse == null) return;
+
         // Wait for the initial click (that activated build mode) to release
         if (waitForMouseUp)
         {
-            if (Input.GetMouseButtonUp(0))
+            if (mouse.leftButton.wasReleasedThisFrame)
                 waitForMouseUp = false;
             // Still move the preview while waiting
-            MovePreview();
+            MovePreview(mouse);
             return;
         }
 
-        MovePreview();
+        MovePreview(mouse);
 
         // Check mouse is not over GUI
-        bool overGUI = Input.mousePosition.x < GUI_PANEL_WIDTH
-                    || Input.mousePosition.y > Screen.height - GUI_TOP_BAR_HEIGHT;
+        Vector2 mousePos = mouse.position.ReadValue();
+        bool overGUI = mousePos.x < GUI_PANEL_WIDTH
+                    || mousePos.y > Screen.height - GUI_TOP_BAR_HEIGHT;
 
-        if (Input.GetMouseButtonDown(0) && !overGUI)
+        if (mouse.leftButton.wasPressedThisFrame && !overGUI)
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(mousePos);
             Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
             if (groundPlane.Raycast(ray, out float dist))
             {
@@ -65,17 +71,17 @@ public class BuildingSystem : MonoBehaviour
             }
         }
 
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+        if (mouse.rightButton.wasPressedThisFrame || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))
         {
             CancelBuild();
         }
     }
 
-    void MovePreview()
+    void MovePreview(Mouse mouse)
     {
         if (previewObject == null || Camera.main == null) return;
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
         Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
 
         if (groundPlane.Raycast(ray, out float dist))
