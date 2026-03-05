@@ -14,9 +14,9 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        // Standard RTS overhead: tower in upper third, battlefield visible
-        transform.position = new Vector3(0f, 50f, -50f);
-        transform.eulerAngles = new Vector3(45f, 0f, 0f);
+        // Overview: tower visible in upper area, full battlefield below
+        transform.position = new Vector3(0f, 60f, -30f);
+        transform.eulerAngles = new Vector3(50f, 0f, 0f);
 
         if (cam != null)
             cam.fieldOfView = 70f;

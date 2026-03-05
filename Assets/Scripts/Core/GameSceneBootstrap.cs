@@ -230,7 +230,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         GameObject tower = new GameObject("Tower");
         tower.transform.position = TowerPos;
-        float s = 0.35f;
+        float s = 0.5f;
 
         Color stoneLight = new Color(0.55f, 0.48f, 0.38f);
         Color stoneMid = new Color(0.48f, 0.42f, 0.34f);
@@ -379,7 +379,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         GameObject moat = new GameObject("Moat");
         moat.transform.position = TowerPos;
-        float s = 0.35f;
+        float s = 0.5f;
 
         // Moat water
         GameObject moatWater = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
