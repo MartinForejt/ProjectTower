@@ -34,6 +34,7 @@ public class Projectile : MonoBehaviour
     {
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.color = color;
+        mat.SetFloat("_Smoothness", 0.12f);
         return mat;
     }
 
@@ -261,6 +262,9 @@ public class Projectile : MonoBehaviour
 
     void SpawnExplosion()
     {
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.PlayExplosion(transform.position);
+
         Color c = projectileType == DefenseType.RocketLauncher
             ? new Color(1f, 0.4f, 0.1f)
             : new Color(0.3f, 0.5f, 1f);

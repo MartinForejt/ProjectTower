@@ -153,6 +153,15 @@ public class BuildingSystem : MonoBehaviour
     {
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.color = color;
+        mat.SetFloat("_Smoothness", 0.12f);
+        return mat;
+    }
+
+    Material MakeMetalMat(Color color)
+    {
+        Material mat = MakeMat(color);
+        mat.SetFloat("_Metallic", 0.75f);
+        mat.SetFloat("_Smoothness", 0.4f);
         return mat;
     }
 
@@ -290,7 +299,7 @@ public class BuildingSystem : MonoBehaviour
         pedestal.transform.SetParent(parent.transform);
         pedestal.transform.localPosition = new Vector3(0f, 0.3f, 0f);
         pedestal.transform.localScale = new Vector3(0.55f, 0.5f, 0.55f);
-        pedestal.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.38f, 0.33f));
+        pedestal.GetComponent<Renderer>().material = MakeMetalMat(new Color(0.4f, 0.38f, 0.33f));
 
         // Ring detail on pedestal
         AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f),

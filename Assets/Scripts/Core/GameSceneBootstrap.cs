@@ -16,6 +16,8 @@ public class GameSceneBootstrap : MonoBehaviour
             new GameObject("EnemySpawner").AddComponent<EnemySpawner>();
         if (BuildingSystem.Instance == null)
             new GameObject("BuildingSystem").AddComponent<BuildingSystem>();
+        if (SoundManager.Instance == null)
+            new GameObject("SoundManager").AddComponent<SoundManager>();
 
         GameManager.Instance.ChangeState(GameState.Setup);
     }
@@ -43,6 +45,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.color = color;
+        mat.SetFloat("_Smoothness", 0.12f);
         return mat;
     }
 
@@ -58,6 +61,21 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         Material mat = MakeMat(color);
         mat.SetFloat("_Smoothness", smoothness);
+        return mat;
+    }
+
+    Material MakeMetalMat(Color color)
+    {
+        Material mat = MakeMat(color);
+        mat.SetFloat("_Metallic", 0.75f);
+        mat.SetFloat("_Smoothness", 0.4f);
+        return mat;
+    }
+
+    Material MakeWoodMat(Color color)
+    {
+        Material mat = MakeMat(color);
+        mat.SetFloat("_Smoothness", 0.18f);
         return mat;
     }
 

@@ -91,6 +91,13 @@ public class Defense : MonoBehaviour
             Enemy enemy = hit.GetComponent<Enemy>();
             if (enemy != null && !enemy.IsDead)
             {
+                // Don't target enemies off-screen
+                if (Camera.main != null)
+                {
+                    Vector3 vp = Camera.main.WorldToViewportPoint(hit.transform.position);
+                    if (vp.x < -0.05f || vp.x > 1.05f || vp.y < -0.05f || vp.y > 1.05f || vp.z < 0)
+                        continue;
+                }
                 float dist = Vector3.Distance(transform.position, hit.transform.position);
                 if (dist < closestDist)
                 {
@@ -139,6 +146,10 @@ public class Defense : MonoBehaviour
 
         // Muzzle flash
         SpawnMuzzleFlash(spawnPos);
+
+        // Sound
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.PlayDefenseShot(defenseType, spawnPos);
     }
 
     void SpawnMuzzleFlash(Vector3 pos)

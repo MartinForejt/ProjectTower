@@ -23,6 +23,15 @@ public class EnemySpawner : MonoBehaviour
     {
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.color = color;
+        mat.SetFloat("_Smoothness", 0.12f);
+        return mat;
+    }
+
+    Material MakeMetalMat(Color color)
+    {
+        Material mat = MakeMat(color);
+        mat.SetFloat("_Metallic", 0.75f);
+        mat.SetFloat("_Smoothness", 0.4f);
         return mat;
     }
 
@@ -89,6 +98,7 @@ public class EnemySpawner : MonoBehaviour
         Color darkSkin = skinColor * 0.6f; darkSkin.a = 1f;
         Color armorColor = Color.HSVToRGB(Random.Range(0f, 1f), 0.3f, Random.Range(0.2f, 0.4f));
         Color metalColor = new Color(0.4f, 0.38f, 0.35f);
+        Material metalMat = MakeMetalMat(metalColor);
 
         // Torso
         GameObject torso = MakePart(parent, PrimitiveType.Capsule,
@@ -97,7 +107,7 @@ public class EnemySpawner : MonoBehaviour
 
         // Chest armor plate
         MakePart(parent, PrimitiveType.Cube,
-            new Vector3(0f, 0.75f, -0.12f), new Vector3(0.28f, 0.3f, 0.04f), MakeMat(metalColor));
+            new Vector3(0f, 0.75f, -0.12f), new Vector3(0.28f, 0.3f, 0.04f), MakeMetalMat(metalColor));
 
         // Belt
         MakePart(parent, PrimitiveType.Cube,
@@ -169,7 +179,7 @@ public class EnemySpawner : MonoBehaviour
 
         // Sword guard
         MakePart(parent, PrimitiveType.Cube,
-            new Vector3(0.3f, 0.4f, -0.15f), new Vector3(0.12f, 0.02f, 0.04f), MakeMat(metalColor));
+            new Vector3(0.3f, 0.4f, -0.15f), new Vector3(0.12f, 0.02f, 0.04f), MakeMetalMat(metalColor));
 
         // Shoulder pads (random)
         if (difficulty > 1.5f || Random.value > 0.5f)
@@ -178,7 +188,7 @@ public class EnemySpawner : MonoBehaviour
             {
                 float side = (i == 0) ? -1f : 1f;
                 MakePart(parent, PrimitiveType.Sphere,
-                    new Vector3(side * 0.22f, 0.95f, 0f), new Vector3(0.12f, 0.08f, 0.1f), MakeMat(metalColor));
+                    new Vector3(side * 0.22f, 0.95f, 0f), new Vector3(0.12f, 0.08f, 0.1f), MakeMetalMat(metalColor));
             }
         }
 
@@ -208,7 +218,7 @@ public class EnemySpawner : MonoBehaviour
 
         // Chest armor
         MakePart(parent, PrimitiveType.Cube,
-            new Vector3(0f, 1.5f, -0.38f), new Vector3(0.6f, 0.5f, 0.06f), MakeMat(metalColor));
+            new Vector3(0f, 1.5f, -0.38f), new Vector3(0.6f, 0.5f, 0.06f), MakeMetalMat(metalColor));
 
         // Glowing rune on chest
         MakePart(parent, PrimitiveType.Cube,
@@ -260,7 +270,7 @@ public class EnemySpawner : MonoBehaviour
         {
             float side = (i == 0) ? -1f : 1f;
             GameObject shoulder = MakePart(parent, PrimitiveType.Sphere,
-                new Vector3(side * 0.55f, 2f, 0f), new Vector3(0.3f, 0.25f, 0.25f), MakeMat(metalColor));
+                new Vector3(side * 0.55f, 2f, 0f), new Vector3(0.3f, 0.25f, 0.25f), MakeMetalMat(metalColor));
             shoulder.name = "Shoulder";
 
             // Spike on shoulder
@@ -300,7 +310,7 @@ public class EnemySpawner : MonoBehaviour
 
             // Boot
             MakePart(parent, PrimitiveType.Cube,
-                new Vector3(side * 0.18f, 0.03f, -0.06f), new Vector3(0.15f, 0.08f, 0.22f), MakeMat(metalColor));
+                new Vector3(side * 0.18f, 0.03f, -0.06f), new Vector3(0.15f, 0.08f, 0.22f), MakeMetalMat(metalColor));
         }
 
         // Massive weapon - war hammer on right side
@@ -309,7 +319,7 @@ public class EnemySpawner : MonoBehaviour
         handle.name = "WeaponHandle";
 
         GameObject hammerHead = MakePart(parent, PrimitiveType.Cube,
-            new Vector3(0.6f, 1.8f, -0.2f), new Vector3(0.25f, 0.12f, 0.12f), MakeMat(metalColor));
+            new Vector3(0.6f, 1.8f, -0.2f), new Vector3(0.25f, 0.12f, 0.12f), MakeMetalMat(metalColor));
         hammerHead.name = "HammerHead";
 
         // Hammer glow

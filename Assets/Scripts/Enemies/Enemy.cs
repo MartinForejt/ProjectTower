@@ -192,6 +192,9 @@ public class Enemy : MonoBehaviour
         // Flash red on hit
         FlashDamage();
 
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.PlayEnemyHit(transform.position);
+
         if (Health <= 0)
             Die();
     }
@@ -227,6 +230,10 @@ public class Enemy : MonoBehaviour
 
         SpawnGibs();
         SpawnBloodPool();
+
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.PlayEnemyDeath(transform.position);
+
         Destroy(gameObject);
     }
 
