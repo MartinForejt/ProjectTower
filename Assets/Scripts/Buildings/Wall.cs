@@ -19,7 +19,12 @@ public class Wall : MonoBehaviour
 
     void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        // Allow replacing a destroyed wall
+        if (Instance != null && Instance != this && !Instance.IsDestroyed)
+        {
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
     }
 
@@ -112,7 +117,7 @@ public class Wall : MonoBehaviour
             Shield = MaxShield;
     }
 
-    public int GetUpgradeCost() => 150 + Level * 100;
+    public int GetUpgradeCost() => Mathf.RoundToInt(200f * Mathf.Pow(1.5f, Level - 1));
 
     public static int GetBuyCost() => 1000;
 

@@ -337,9 +337,9 @@ public class GameHUD : MonoBehaviour
             else
             {
                 int wLvl = BuildingSystem.Instance.WallLevel;
-                int wCost = Wall.Instance.GetUpgradeCost();
+                int wCost = Wall.Instance != null ? Wall.Instance.GetUpgradeCost() : 0;
                 string shieldNote = wLvl >= 4 ? (wLvl >= 5 ? " [Shield]" : " Shield@5") : "";
-                if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Wall Lv{wLvl} ({wCost}g){shieldNote}", smallBtnStyle))
+                if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Upgrade Wall Lv{wLvl} ({wCost}g){shieldNote}", smallBtnStyle))
                     BuildingSystem.Instance.UpgradeWall();
             }
         }

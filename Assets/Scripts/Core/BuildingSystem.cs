@@ -5,7 +5,7 @@ public class BuildingSystem : MonoBehaviour
     public static BuildingSystem Instance { get; private set; }
 
     private static readonly Vector3 TowerPos = new Vector3(0f, 0f, 18f);
-    private const float WALL_RADIUS = 4.5f;
+    private const float WALL_RADIUS = 6f;
     private const int WALL_SEGMENTS = 16;
 
     // Wall
@@ -60,7 +60,7 @@ public class BuildingSystem : MonoBehaviour
             outDir.y = 0;
 
             VoxelData data = VoxelModels.CreateWall();
-            float vs = 0.1f;
+            float vs = 0.12f;
             Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);
 
             GameObject segGO = new GameObject("WallSeg_" + i);

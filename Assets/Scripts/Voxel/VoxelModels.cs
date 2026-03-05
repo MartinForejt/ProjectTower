@@ -285,18 +285,8 @@ public static class VoxelModels
         int cx = w / 2, cz = dep / 2;
         int s = scale;
 
-        // Boots (dark brown at bottom)
-        int bootH = 2 * s;
-        d.FillBox(cx - 4*s, 0, cz - 2*s, cx - 1*s, bootH - 1, cz + 1*s, boots);
-        d.FillBox(cx + 1*s, 0, cz - 2*s, cx + 4*s - 1, bootH - 1, cz + 1*s, boots);
-        // Boot soles (slightly wider)
-        d.FillBox(cx - 4*s, 0, cz - 2*s - 1, cx - 1*s, 0, cz + 1*s, boots);
-        d.FillBox(cx + 1*s, 0, cz - 2*s - 1, cx + 4*s - 1, 0, cz + 1*s, boots);
-
-        // Legs (skin above boots)
-        int legH = 6 * s;
-        d.FillBox(cx - 3*s, bootH, cz - 1*s, cx - 1*s, legH - 1, cz + 1*s, skin);
-        d.FillBox(cx + 1*s, bootH, cz - 1*s, cx + 3*s - 1, legH - 1, cz + 1*s, skin);
+        // Legs/boots/arms are NOT in the voxel model — animated cube limbs handle those
+        int legH = 6 * s; // virtual leg height for positioning
 
         // Belt
         d.FillBox(cx - 4*s, legH, cz - 2*s, cx + 4*s - 1, legH + 1*s - 1, cz + 2*s - 1, belt);
@@ -314,16 +304,11 @@ public static class VoxelModels
         d.Set(cx - 2*s, bodyBot + 2*s, cz - 2*s, buckle);
         d.Set(cx + 2*s - 1, bodyBot + 2*s, cz - 2*s, buckle);
 
-        // Shoulder pads
+        // Shoulder pads (kept on torso for visual bulk)
         d.FillBox(cx - 5*s, bodyTop - 1*s, cz - 1*s, cx - 4*s, bodyTop + 1, cz + 1*s, armorD);
         d.FillBox(cx + 4*s, bodyTop - 1*s, cz - 1*s, cx + 5*s - 1, bodyTop + 1, cz + 1*s, armorD);
 
-        // Arms
-        d.FillBox(cx - 5*s, bodyBot, cz - 1*s, cx - 4*s, bodyTop - 2*s, cz + 1*s, skin);
-        d.FillBox(cx + 4*s, bodyBot, cz - 1*s, cx + 5*s - 1, bodyTop - 2*s, cz + 1*s, skin);
-        // Hands (slightly different)
-        d.FillBox(cx - 5*s, bodyBot - 1*s, cz - 1*s, cx - 4*s, bodyBot, cz, skinD);
-        d.FillBox(cx + 4*s, bodyBot - 1*s, cz - 1*s, cx + 5*s - 1, bodyBot, cz, skinD);
+        // Arms/hands are NOT in voxel model — animated cube limbs handle those
 
         // Neck
         int neckBot = bodyTop + 1;
