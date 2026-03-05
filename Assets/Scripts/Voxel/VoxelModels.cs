@@ -677,16 +677,18 @@ public static class VoxelModels
             float n2 = Mathf.PerlinNoise(wx * 0.07f + 50f, wz * 0.07f + 50f) * 0.3f;
             float noise = n1 + n2;
 
+            // Boundary noise for natural zone transitions
+            float bn = Mathf.PerlinNoise(wx * 0.12f + 800f, wz * 0.12f + 800f) * 8f - 4f;
+
             float towerDist = Mathf.Sqrt(wx * wx + (wz - 18f) * (wz - 18f));
 
-            // Height bumps far from gameplay area
             int surfaceH = 1;
-            if (noise > 0.95f && towerDist > 30f && (Mathf.Abs(wx) > 25f || wz > 25f))
+            if (noise > 0.95f && towerDist > 30f && (Mathf.Abs(wx) > 25f || wz + bn > 25f))
                 surfaceH = 2;
 
-            Color surface = GroundBiomeColor(wx, wz, noise, towerDist);
+            Color surface = GroundBiomeColor(wx, wz, noise, towerDist, bn);
 
-            // Embedded stones (gray rocky spots)
+            // Embedded stones
             float stoneN = Mathf.PerlinNoise(wx * 0.3f + 600f, wz * 0.3f + 600f);
             if (stoneN > 0.78f)
             {
@@ -726,60 +728,97 @@ public static class VoxelModels
                 data.Set(x, y, z, y == surfaceH - 1 ? surface : dirtBase);
         }
 
-        ApplyVariation(data, 0.012f);
+        ApplyVariation(data, 0.015f);
         return data;
     }
 
-    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist)
+    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist, float bn)
     {
-        // Dirt path from south to tower
-        float pathX = Mathf.Sin(wz * 0.08f) * 3f;
-        if (Mathf.Abs(wx - pathX) < 1.5f && wz > -55f && wz < 15f)
-            return new Color(0.30f + noise * 0.04f, 0.24f + noise * 0.04f, 0.14f);
+        // Secondary noise for within-biome color blending
+        float mix = Mathf.PerlinNoise(wx * 0.18f + 900f, wz * 0.18f + 900f);
 
+        // Winding dirt path with soft edges
+        float pathX = Mathf.Sin(wz * 0.06f) * 4f + Mathf.Sin(wz * 0.15f) * 1.5f;
+        float distToPath = Mathf.Abs(wx - pathX);
+        if (distToPath < 1.2f && wz > -55f && wz < 15f)
+        {
+            Color pathA = new Color(0.32f + noise * 0.04f, 0.26f + noise * 0.04f, 0.15f);
+            Color pathB = new Color(0.28f + noise * 0.03f, 0.22f + noise * 0.03f, 0.13f);
+            return Color.Lerp(pathA, pathB, distToPath / 1.2f);
+        }
+        if (distToPath < 3f && wz > -55f && wz < 15f)
+        {
+            float edge = (distToPath - 1.2f) / 1.8f;
+            Color pathEdge = new Color(0.28f + noise * 0.03f, 0.24f + noise * 0.03f, 0.13f);
+            Color biome = GroundBaseBiome(wx, wz, noise, towerDist, bn, mix);
+            return Color.Lerp(pathEdge, biome, edge);
+        }
+
+        return GroundBaseBiome(wx, wz, noise, towerDist, bn, mix);
+    }
+
+    static Color GroundBaseBiome(float wx, float wz, float noise, float towerDist, float bn, float mix)
+    {
         // Gravel near tower
         if (towerDist < 6f)
         {
             float g = 0.32f + noise * 0.1f;
-            return new Color(g, g * 0.95f, g * 0.85f);
+            return Color.Lerp(
+                new Color(g, g * 0.9f, g * 0.8f),
+                new Color(g * 1.1f, g, g * 0.85f), mix);
         }
 
-        // Forest floor (north)
-        if (wz > 22f)
+        // Forest floor (north) - wavy boundary
+        if (wz + bn > 22f)
         {
-            float g = 0.10f + noise * 0.08f;
-            return new Color(g * 0.6f, g, g * 0.3f);
+            Color a = new Color(0.06f + noise * 0.04f, 0.12f + noise * 0.06f, 0.04f);
+            Color b = new Color(0.1f + noise * 0.05f, 0.2f + noise * 0.08f, 0.06f);
+            return Color.Lerp(a, b, mix);
         }
 
         // Lush green near tower
-        if (wz > 5f)
+        if (wz + bn > 5f)
         {
-            float g = 0.25f + noise * 0.1f;
-            return new Color(g * 0.55f, g, g * 0.25f);
+            Color a = new Color(0.12f + noise * 0.06f, 0.26f + noise * 0.1f, 0.06f);
+            Color b = new Color(0.16f + noise * 0.05f, 0.22f + noise * 0.08f, 0.09f);
+            return Color.Lerp(a, b, mix);
         }
 
         // Battlefield zone
-        if (wz > -15f)
+        if (wz + bn > -15f)
         {
             float bf = Mathf.PerlinNoise(wx * 0.1f + 200f, wz * 0.1f + 200f);
             if (bf > 0.55f)
-                return new Color(0.19f + noise * 0.03f, 0.19f + noise * 0.03f, 0.11f);
-            float g = 0.22f + noise * 0.08f;
-            return new Color(g * 0.6f, g, g * 0.3f);
+            {
+                Color a = new Color(0.17f + noise * 0.03f, 0.17f + noise * 0.03f, 0.1f);
+                Color b = new Color(0.21f + noise * 0.03f, 0.19f + noise * 0.03f, 0.12f);
+                return Color.Lerp(a, b, mix);
+            }
+            Color ga = new Color(0.13f + noise * 0.06f, 0.22f + noise * 0.08f, 0.07f);
+            Color gb = new Color(0.17f + noise * 0.05f, 0.19f + noise * 0.07f, 0.09f);
+            return Color.Lerp(ga, gb, mix);
         }
 
-        // Mid-field (dry grass and dirt mix)
-        if (wz > -45f)
+        // Mid-field dry grass and dirt
+        if (wz + bn > -45f)
         {
             float t = Mathf.PerlinNoise(wx * 0.08f + 300f, wz * 0.08f + 300f);
             if (t > 0.5f)
-                return new Color(0.32f + noise * 0.06f, 0.34f + noise * 0.06f, 0.12f);
-            float b = 0.18f + noise * 0.1f;
-            return new Color(b + 0.04f, b + 0.02f, b * 0.4f);
+            {
+                Color a = new Color(0.28f + noise * 0.06f, 0.3f + noise * 0.06f, 0.12f);
+                Color b = new Color(0.32f + noise * 0.05f, 0.28f + noise * 0.05f, 0.14f);
+                return Color.Lerp(a, b, mix);
+            }
+            float bv = 0.18f + noise * 0.1f;
+            Color da = new Color(bv + 0.04f, bv + 0.02f, bv * 0.4f);
+            Color db = new Color(bv + 0.06f, bv + 0.03f, bv * 0.5f);
+            return Color.Lerp(da, db, mix);
         }
 
-        // Far south spawn area (dead terrain)
-        return new Color(0.25f + noise * 0.05f, 0.22f + noise * 0.04f, 0.12f);
+        // Far south spawn area
+        Color sa = new Color(0.23f + noise * 0.05f, 0.2f + noise * 0.04f, 0.11f);
+        Color sb = new Color(0.27f + noise * 0.04f, 0.24f + noise * 0.03f, 0.13f);
+        return Color.Lerp(sa, sb, mix);
     }
 
     // ============ HELPER: Spawn a VoxelObject from data ============
