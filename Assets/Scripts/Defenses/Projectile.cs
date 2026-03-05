@@ -73,6 +73,8 @@ public class Projectile : MonoBehaviour
         trail.transform.localScale = new Vector3(0.025f, 0.025f, 0.2f);
         Destroy(trail.GetComponent<Collider>());
         trail.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.8f, 0.2f), 2.5f);
+
+        DynamicLight.Create(transform.position, new Color(1f, 0.95f, 0.4f), 1.5f, 4f, 0f, transform);
     }
 
     void CreateBolt()
@@ -140,6 +142,8 @@ public class Projectile : MonoBehaviour
         exhaust.transform.localScale = new Vector3(0.15f, 0.15f, 0.25f);
         Destroy(exhaust.GetComponent<Collider>());
         exhaust.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.5f, 0.1f), 6f);
+
+        DynamicLight.Create(transform.position, new Color(1f, 0.5f, 0.1f), 2f, 6f, 0f, transform);
     }
 
     void CreatePlasma()
@@ -170,6 +174,8 @@ public class Projectile : MonoBehaviour
             Destroy(arc.GetComponent<Collider>());
             arc.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.6f, 0.8f, 1f), 4f);
         }
+
+        DynamicLight.Create(transform.position, new Color(0.3f, 0.5f, 1f), 3f, 10f, 0f, transform);
     }
 
     void Update()
@@ -282,6 +288,7 @@ public class Projectile : MonoBehaviour
         Destroy(spark.GetComponent<Collider>());
         spark.GetComponent<Renderer>().material = MakeGlowMat(c, 5f);
         Destroy(spark, 0.1f);
+        DynamicLight.Create(transform.position, c, 3f, 6f, 0.15f);
 
         // Spark particles flying out
         for (int i = 0; i < 5; i++)
@@ -335,6 +342,7 @@ public class Projectile : MonoBehaviour
         explosion.transform.localScale = Vector3.one * size;
         Destroy(explosion.GetComponent<Collider>());
         explosion.GetComponent<Renderer>().material = MakeGlowMat(c, 8f);
+        DynamicLight.Create(transform.position, c, 5f, 15f, 0.3f);
 
         // Inner bright core
         GameObject innerCore = GameObject.CreatePrimitive(PrimitiveType.Sphere);

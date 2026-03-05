@@ -679,12 +679,26 @@ public static class VoxelModels
 
             float towerDist = Mathf.Sqrt(wx * wx + (wz - 18f) * (wz - 18f));
 
-            // Height bumps only far from gameplay area
+            // Height bumps far from gameplay area
             int surfaceH = 1;
-            if (noise > 1.05f && towerDist > 35f && (Mathf.Abs(wx) > 30f || wz > 30f))
+            if (noise > 0.95f && towerDist > 30f && (Mathf.Abs(wx) > 25f || wz > 25f))
                 surfaceH = 2;
 
             Color surface = GroundBiomeColor(wx, wz, noise, towerDist);
+
+            // Embedded stones (gray rocky spots)
+            float stoneN = Mathf.PerlinNoise(wx * 0.3f + 600f, wz * 0.3f + 600f);
+            if (stoneN > 0.78f)
+            {
+                float g = 0.35f + noise * 0.08f;
+                surface = new Color(g, g * 0.95f, g * 0.9f);
+                if (towerDist > 25f) surfaceH = 2;
+            }
+
+            // Moss patches
+            float mossN = Mathf.PerlinNoise(wx * 0.25f + 700f, wz * 0.25f + 700f);
+            if (mossN > 0.8f && wz > -10f)
+                surface = new Color(0.08f + noise * 0.04f, 0.2f + noise * 0.06f, 0.05f);
 
             // Puddle clusters
             float puddleN = Mathf.PerlinNoise(wx * 0.15f + 400f, wz * 0.15f + 400f);

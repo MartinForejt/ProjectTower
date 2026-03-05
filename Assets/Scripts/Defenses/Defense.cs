@@ -217,6 +217,8 @@ public class Defense : MonoBehaviour
         Destroy(flash2.GetComponent<Collider>());
         flash2.GetComponent<Renderer>().material = MakeGlowMat(flashColor * 0.5f, 3f);
         Destroy(flash2, 0.05f);
+
+        DynamicLight.Create(pos, flashColor, 4f, 8f, 0.1f);
     }
 
     void SpawnMuzzleSparks(Vector3 pos)

@@ -193,6 +193,8 @@ public class Enemy : MonoBehaviour
         om.SetColor("_EmissionColor", new Color(1f, 0.3f, 0f) * 3f);
         outer.GetComponent<Renderer>().material = om;
 
+        DynamicLight.Create(fb.transform.position, new Color(1f, 0.4f, 0.05f), 3f, 8f, 0f, fb.transform);
+
         Fireball fireball = fb.AddComponent<Fireball>();
         fireball.Init(Tower.Instance.transform.position + Vector3.up * 1f, attackDamage * 2f);
     }
@@ -317,6 +319,7 @@ public class Fireball : MonoBehaviour
             m.EnableKeyword("_EMISSION");
             m.SetColor("_EmissionColor", new Color(1f, 0.4f, 0f) * 4f);
             boom.GetComponent<Renderer>().material = m;
+            DynamicLight.Create(transform.position, new Color(1f, 0.4f, 0f), 5f, 12f, 0.3f);
             Destroy(boom, 0.25f);
 
             Destroy(gameObject);

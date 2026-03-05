@@ -104,9 +104,25 @@ public class GameSceneBootstrap : MonoBehaviour
         GameObject moat = new GameObject("Moat");
         moat.transform.position = TowerPos;
 
-        Material waterMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        waterMat.color = new Color(0.08f, 0.18f, 0.4f);
-        waterMat.SetFloat("_Smoothness", 0.8f);
+        Shader waterShader = Shader.Find("Custom/AnimatedWater");
+        Material waterMat;
+        if (waterShader != null)
+        {
+            waterMat = new Material(waterShader);
+            waterMat.SetColor("_Color", new Color(0.08f, 0.25f, 0.5f, 0.7f));
+            waterMat.SetColor("_DeepColor", new Color(0.02f, 0.08f, 0.25f, 1f));
+            waterMat.SetFloat("_WaveSpeed", 1.5f);
+            waterMat.SetFloat("_WaveScale", 2f);
+            waterMat.SetFloat("_WaveHeight", 0.03f);
+            waterMat.SetFloat("_FresnelPower", 3f);
+            waterMat.SetFloat("_Glossiness", 0.95f);
+        }
+        else
+        {
+            waterMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            waterMat.color = new Color(0.08f, 0.18f, 0.4f);
+            waterMat.SetFloat("_Smoothness", 0.8f);
+        }
 
         GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         water.transform.SetParent(moat.transform);
