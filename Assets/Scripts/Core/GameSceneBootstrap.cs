@@ -19,7 +19,8 @@ public class GameSceneBootstrap : MonoBehaviour
         if (SoundManager.Instance == null)
             new GameObject("SoundManager").AddComponent<SoundManager>();
 
-        GameManager.Instance.ChangeState(GameState.Setup);
+        GameState startState = GameManager.GetStartState();
+        GameManager.Instance.ChangeState(startState);
     }
 
     void Start()
@@ -34,6 +35,13 @@ public class GameSceneBootstrap : MonoBehaviour
 
         if (FindFirstObjectByType<GameHUD>() == null)
             gameObject.AddComponent<GameHUD>();
+
+        // Show splash screen when in MainMenu state
+        if (GameManager.Instance.CurrentState == GameState.MainMenu)
+        {
+            if (FindFirstObjectByType<MainMenuUI>() == null)
+                gameObject.AddComponent<MainMenuUI>();
+        }
 
         Camera cam = Camera.main;
         if (cam != null && cam.GetComponent<PS1PostProcess>() == null)

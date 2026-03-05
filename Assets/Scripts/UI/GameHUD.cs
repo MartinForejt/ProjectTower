@@ -38,12 +38,14 @@ public class GameHUD : MonoBehaviour
     void OnGUI()
     {
         if (GameManager.Instance == null) return;
+        if (GameManager.Instance.CurrentState == GameState.MainMenu) return;
         InitStyles();
 
-        scale = Screen.height / 1080f;
+        scale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        if (scale < 0.01f) scale = 1f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
         float sw = Screen.width / scale;
-        float sh = 1080f;
+        float sh = Screen.height / scale;
 
         GameState state = GameManager.Instance.CurrentState;
 

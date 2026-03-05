@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class MainMenuUI : MonoBehaviour
 {
@@ -9,10 +8,6 @@ public class MainMenuUI : MonoBehaviour
 
     void Start()
     {
-        Camera cam = Camera.main;
-        if (cam != null)
-            cam.backgroundColor = new Color(0.03f, 0.03f, 0.06f);
-
         bgTex = MakeTex(new Color(0.06f, 0.06f, 0.1f, 0.97f));
         panelTex = MakeTex(new Color(0.1f, 0.1f, 0.16f, 0.95f));
         accentTex = MakeTex(new Color(0.85f, 0.7f, 0.2f, 0.9f));
@@ -22,10 +17,14 @@ public class MainMenuUI : MonoBehaviour
 
     void OnGUI()
     {
-        scale = Screen.height / 1080f;
+        if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.MainMenu)
+            return;
+
+        scale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        if (scale < 0.01f) scale = 1f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
         float sw = Screen.width / scale;
-        float sh = 1080f;
+        float sh = Screen.height / scale;
 
         GUI.DrawTexture(new Rect(0, 0, sw, sh), bgTex);
 
@@ -43,15 +42,12 @@ public class MainMenuUI : MonoBehaviour
 
         GUI.DrawTexture(new Rect(cx - pw / 2, cy - ph / 2 - 40, pw, ph), panelTex);
 
-        // Title
         GUIStyle title = MakeStyle(52, FontStyle.Bold, TextAnchor.MiddleCenter, new Color(0.95f, 0.8f, 0.2f));
         GUI.Label(new Rect(cx - 260, cy - 230, 520, 70), "PROJECT TOWER", title);
 
-        // Subtitle
         GUIStyle sub = MakeStyle(18, FontStyle.Normal, TextAnchor.MiddleCenter, new Color(0.65f, 0.6f, 0.5f));
         GUI.Label(new Rect(cx - 200, cy - 155, 400, 30), "Defend. Upgrade. Survive.", sub);
 
-        // Divider
         GUI.DrawTexture(new Rect(cx - 100, cy - 118, 200, 2), accentTex);
 
         float btnW = 280, btnH = 55;
@@ -62,22 +58,19 @@ public class MainMenuUI : MonoBehaviour
         GUIStyle btn = MakeButtonStyle(22);
 
         if (GUI.Button(new Rect(btnX, btnY, btnW, btnH), "NEW GAME", btn))
-            SceneManager.LoadScene("GameScene");
+        {
+            GameManager.Instance.ChangeState(GameState.Setup);
+            Destroy(this);
+        }
 
         if (GUI.Button(new Rect(btnX, btnY + spacing, btnW, btnH), "SETTINGS", btn))
             showSettings = true;
 
         if (GUI.Button(new Rect(btnX, btnY + spacing * 2, btnW, btnH), "EXIT", btn))
-        {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
-        }
+            GameManager.Instance.QuitGame();
 
         GUIStyle ver = MakeStyle(12, FontStyle.Normal, TextAnchor.LowerRight, new Color(0.35f, 0.35f, 0.4f));
-        GUI.Label(new Rect(sw - 180, sh - 35, 170, 25), "v0.2.0", ver);
+        GUI.Label(new Rect(sw - 180, sh - 35, 170, 25), "v0.3.0", ver);
     }
 
     void DrawSettings(float sw, float sh)

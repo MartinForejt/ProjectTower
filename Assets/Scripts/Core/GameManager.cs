@@ -15,10 +15,13 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    public GameState CurrentState { get; private set; } = GameState.Setup;
+    public GameState CurrentState { get; private set; } = GameState.MainMenu;
     public int CurrentWave { get; set; }
 
     public event System.Action<GameState> OnGameStateChanged;
+
+    // Static so it survives scene reload
+    private static GameState? pendingState = null;
 
     void Awake()
     {
@@ -28,7 +31,6 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     void Update()
@@ -49,6 +51,12 @@ public class GameManager : MonoBehaviour
 
         switch (newState)
         {
+            case GameState.MainMenu:
+                Time.timeScale = 1f;
+                break;
+            case GameState.Setup:
+                Time.timeScale = 1f;
+                break;
             case GameState.Playing:
                 Time.timeScale = 1f;
                 break;
@@ -59,6 +67,17 @@ public class GameManager : MonoBehaviour
                 Time.timeScale = 0f;
                 break;
         }
+    }
+
+    public static GameState GetStartState()
+    {
+        if (pendingState.HasValue)
+        {
+            GameState s = pendingState.Value;
+            pendingState = null;
+            return s;
+        }
+        return GameState.MainMenu;
     }
 
     public void StartWaves()
@@ -91,13 +110,17 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         CurrentWave = 0;
-        SceneManager.LoadScene("GameScene");
+        pendingState = GameState.Setup;
+        Instance = null;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public void LoadMainMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("MainMenu");
+        pendingState = GameState.MainMenu;
+        Instance = null;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public void QuitGame()
