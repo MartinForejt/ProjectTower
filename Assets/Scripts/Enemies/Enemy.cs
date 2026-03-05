@@ -17,6 +17,7 @@ public class Enemy : MonoBehaviour
 
     private float attackCooldown;
     private Transform target;
+    private Wall currentWallTarget;
     private bool canSpawnMinions;
     private float minionSpawnTimer;
     private float minionSpawnInterval = 8f;
@@ -85,9 +86,28 @@ public class Enemy : MonoBehaviour
 
         float distToTarget = Vector3.Distance(transform.position, target.position);
 
+        // Check for walls blocking path
         if (distToTarget > 3f)
         {
             Vector3 dir = (target.position - transform.position).normalized;
+            dir.y = 0;
+
+            // Raycast to detect walls ahead
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + Vector3.up * 0.4f, dir, out hit, 1.5f))
+            {
+                Wall wall = hit.collider.GetComponentInParent<Wall>();
+                if (wall != null && !wall.IsDestroyed)
+                {
+                    currentWallTarget = wall;
+                    AttackWall();
+                    return;
+                }
+            }
+
+            currentWallTarget = null;
+
+            // Move toward tower
             transform.position += dir * moveSpeed * Time.deltaTime;
             if (dir != Vector3.zero)
                 transform.rotation = Quaternion.LookRotation(dir);
@@ -108,6 +128,17 @@ public class Enemy : MonoBehaviour
         {
             if (Tower.Instance != null)
                 Tower.Instance.TakeDamage(attackDamage);
+            attackCooldown = 1f / attackRate;
+        }
+    }
+
+    void AttackWall()
+    {
+        attackCooldown -= Time.deltaTime;
+        if (attackCooldown <= 0f)
+        {
+            if (currentWallTarget != null && !currentWallTarget.IsDestroyed)
+                currentWallTarget.TakeDamage(attackDamage);
             attackCooldown = 1f / attackRate;
         }
     }
@@ -144,7 +175,6 @@ public class Enemy : MonoBehaviour
     {
         if (Tower.Instance == null) return;
 
-        // Create visible fireball projectile toward tower
         GameObject fb = new GameObject("Fireball");
         fb.transform.position = transform.position + Vector3.up * 1.5f;
 
@@ -245,7 +275,6 @@ public class Enemy : MonoBehaviour
             GameObject gib = r.gameObject;
             gib.transform.SetParent(null);
 
-            // Re-add collider for physics
             if (gib.GetComponent<Collider>() == null)
             {
                 SphereCollider sc = gib.AddComponent<SphereCollider>();
@@ -260,12 +289,10 @@ public class Enemy : MonoBehaviour
             rb.mass = Random.Range(0.1f, 0.4f);
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            // Explosion force from center
             Vector3 center = transform.position + Vector3.down * 0.3f;
             rb.AddExplosionForce(Random.Range(6f, 18f), center, 3f, 2f, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * Random.Range(5f, 20f), ForceMode.Impulse);
 
-            // Blood tint
             Material gibMat = r.material;
             gibMat.color = Color.Lerp(gibMat.color, new Color(0.5f, 0.02f, 0.02f), Random.Range(0.15f, 0.5f));
 
@@ -287,7 +314,6 @@ public class Enemy : MonoBehaviour
     }
 }
 
-// Simple fireball projectile for boss attacks
 public class Fireball : MonoBehaviour
 {
     private Vector3 targetPos;
@@ -312,7 +338,6 @@ public class Fireball : MonoBehaviour
             if (Tower.Instance != null)
                 Tower.Instance.TakeDamage(damage);
 
-            // Explosion effect
             GameObject boom = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             boom.transform.position = transform.position;
             boom.transform.localScale = Vector3.one * 1.5f;

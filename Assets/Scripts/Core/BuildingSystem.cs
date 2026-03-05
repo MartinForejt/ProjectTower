@@ -1,12 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public enum BuildMode
 {
     None,
     PlaceDefense,
-    PlaceMine,
-    PlaceWall
+    PlaceMine
 }
 
 public class BuildingSystem : MonoBehaviour
@@ -22,6 +22,23 @@ public class BuildingSystem : MonoBehaviour
     private GameObject previewObject;
     private bool waitForMouseUp;
 
+    // Wall system
+    private static readonly Vector3 TowerPos = new Vector3(0f, 0f, 18f);
+    private const float WALL_RADIUS = 4.5f;
+    private const float ARC_START = -80f;
+    private const float ARC_END = 80f;
+    private const int MAX_WALL_SLOTS = 9;
+
+    private float[] slotAngles;
+    private int[] slotFillOrder;
+    private Wall[] walls;
+    private int wallCount;
+    private int wallLevel = 1;
+
+    public int WallCount => wallCount;
+    public int WallMaxSlots => MAX_WALL_SLOTS;
+    public int WallLevel => wallLevel;
+
     public event System.Action<BuildMode> OnBuildModeChanged;
 
     void Awake()
@@ -32,6 +49,33 @@ public class BuildingSystem : MonoBehaviour
             return;
         }
         Instance = this;
+
+        InitWallSlots();
+    }
+
+    void InitWallSlots()
+    {
+        slotAngles = new float[MAX_WALL_SLOTS];
+        float arcStep = (ARC_END - ARC_START) / (MAX_WALL_SLOTS - 1);
+        for (int i = 0; i < MAX_WALL_SLOTS; i++)
+            slotAngles[i] = ARC_START + i * arcStep;
+
+        // Fill order: center first, then alternating outward
+        slotFillOrder = new int[MAX_WALL_SLOTS];
+        int center = MAX_WALL_SLOTS / 2;
+        slotFillOrder[0] = center;
+        for (int i = 1; i <= center; i++)
+        {
+            int idx = i * 2 - 1;
+            if (idx < MAX_WALL_SLOTS)
+                slotFillOrder[idx] = center + i;
+            idx = i * 2;
+            if (idx < MAX_WALL_SLOTS)
+                slotFillOrder[idx] = center - i;
+        }
+
+        walls = new Wall[MAX_WALL_SLOTS];
+        wallCount = 0;
     }
 
     void Update()
@@ -97,6 +141,147 @@ public class BuildingSystem : MonoBehaviour
         return pos;
     }
 
+    // ============ WALL AUTO-PLACEMENT ============
+
+    public void AutoPlaceWall()
+    {
+        if (wallCount >= MAX_WALL_SLOTS) return;
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Wall.GetBuildCost()))
+            return;
+
+        int slotIndex = -1;
+        for (int i = 0; i < MAX_WALL_SLOTS; i++)
+        {
+            int slot = slotFillOrder[i];
+            if (walls[slot] == null)
+            {
+                slotIndex = slot;
+                break;
+            }
+        }
+
+        if (slotIndex < 0) return;
+
+        float angleDeg = slotAngles[slotIndex];
+        float angleRad = (angleDeg + 270f) * Mathf.Deg2Rad;
+
+        Vector3 pos = TowerPos + new Vector3(
+            Mathf.Cos(angleRad) * WALL_RADIUS, 0f, Mathf.Sin(angleRad) * WALL_RADIUS);
+        Vector3 outDir = (pos - TowerPos).normalized;
+        outDir.y = 0;
+
+        GameObject wallParent = CreateWallObject(pos, outDir, slotIndex);
+
+        Wall wall = wallParent.AddComponent<Wall>();
+        if (wallLevel > 1)
+            wall.UpgradeWall(wallLevel);
+
+        walls[slotIndex] = wall;
+        wallCount++;
+    }
+
+    GameObject CreateWallObject(Vector3 pos, Vector3 forward, int index)
+    {
+        Color wallStone = new Color(0.5f, 0.45f, 0.38f);
+        Color wallStoneDark = new Color(0.42f, 0.38f, 0.32f);
+        Color wallTrim = new Color(0.45f, 0.4f, 0.33f);
+
+        GameObject wallParent = new GameObject("Wall_" + index);
+        wallParent.transform.position = pos;
+        if (forward != Vector3.zero)
+            wallParent.transform.forward = forward;
+
+        // Wall base
+        AddDecor(wallParent, PrimitiveType.Cube,
+            new Vector3(0f, 0.1f, 0f), new Vector3(2.3f, 0.2f, 0.5f), wallStoneDark);
+
+        // Main wall body (keeps collider for enemy raycast)
+        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        body.transform.SetParent(wallParent.transform);
+        body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+        body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
+        body.name = "WallBody";
+        body.GetComponent<Renderer>().material = MakeMat(wallStone);
+
+        // Stone texture lines
+        for (int row = 0; row < 3; row++)
+        {
+            AddDecor(wallParent, PrimitiveType.Cube,
+                new Vector3(0f, 0.3f + row * 0.35f, -0.21f),
+                new Vector3(2.22f, 0.02f, 0.01f), wallStoneDark * 0.8f);
+        }
+
+        // Top trim
+        AddDecor(wallParent, PrimitiveType.Cube,
+            new Vector3(0f, 1.35f, 0f), new Vector3(2.3f, 0.1f, 0.45f), wallTrim);
+
+        // Crenellations
+        for (int c = -1; c <= 1; c++)
+        {
+            AddDecor(wallParent, PrimitiveType.Cube,
+                new Vector3(c * 0.7f, 1.6f, 0f), new Vector3(0.4f, 0.4f, 0.5f), wallTrim);
+        }
+
+        // Arrow slit
+        AddDecor(wallParent, PrimitiveType.Cube,
+            new Vector3(0f, 0.7f, -0.21f), new Vector3(0.06f, 0.22f, 0.02f), new Color(0.08f, 0.08f, 0.1f));
+
+        // Inner walkway
+        AddDecor(wallParent, PrimitiveType.Cube,
+            new Vector3(0f, 0.9f, 0.28f), new Vector3(2f, 0.06f, 0.3f), wallStoneDark);
+
+        // Torch on every other wall
+        if (index % 2 == 0)
+        {
+            AddDecor(wallParent, PrimitiveType.Cylinder,
+                new Vector3(0f, 1.1f, -0.25f), new Vector3(0.05f, 0.2f, 0.05f), new Color(0.3f, 0.2f, 0.1f));
+
+            GameObject flame = AddDecor(wallParent, PrimitiveType.Sphere,
+                new Vector3(0f, 1.4f, -0.25f), new Vector3(0.1f, 0.15f, 0.1f), new Color(1f, 0.6f, 0.1f));
+            flame.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.6f, 0.1f), 4f);
+
+            GameObject lightObj = new GameObject("WallTorchLight");
+            lightObj.transform.SetParent(wallParent.transform);
+            lightObj.transform.localPosition = new Vector3(0f, 1.5f, -0.25f);
+            Light light = lightObj.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.65f, 0.3f);
+            light.range = 4f;
+            light.intensity = 1.2f;
+        }
+
+        return wallParent;
+    }
+
+    public void UpgradeAllWalls()
+    {
+        int cost = Wall.GetUpgradeCost(wallLevel);
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
+            return;
+
+        wallLevel++;
+        for (int i = 0; i < MAX_WALL_SLOTS; i++)
+        {
+            if (walls[i] != null)
+                walls[i].UpgradeWall(wallLevel);
+        }
+    }
+
+    public void OnWallDestroyed(Wall wall)
+    {
+        for (int i = 0; i < MAX_WALL_SLOTS; i++)
+        {
+            if (walls[i] == wall)
+            {
+                walls[i] = null;
+                wallCount--;
+                break;
+            }
+        }
+    }
+
+    // ============ DEFENSE / MINE PLACEMENT ============
+
     public void StartPlaceDefense(DefenseType type)
     {
         CancelBuild();
@@ -123,29 +308,15 @@ public class BuildingSystem : MonoBehaviour
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
-    public void StartPlaceWall()
-    {
-        CancelBuild();
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.CanAfford(Wall.GetBuildCost()))
-            return;
-
-        CurrentMode = BuildMode.PlaceWall;
-        waitForMouseUp = true;
-        CreateWallPreview();
-        OnBuildModeChanged?.Invoke(CurrentMode);
-    }
-
     void TryPlace(Vector3 position)
     {
-        Vector3 towerPos = new Vector3(0f, 0f, 18f);
-        if (Vector3.Distance(position, towerPos) < 3f) return;
-        if (position.z > towerPos.z + 3f) return;
+        if (Vector3.Distance(position, TowerPos) < 3f) return;
+        if (position.z > TowerPos.z + 3f) return;
 
         switch (CurrentMode)
         {
             case BuildMode.PlaceDefense: PlaceDefense(position); break;
             case BuildMode.PlaceMine: PlaceMine(position); break;
-            case BuildMode.PlaceWall: PlaceWall(position); break;
         }
     }
 
@@ -254,29 +425,6 @@ public class BuildingSystem : MonoBehaviour
         roof.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.7f);
     }
 
-    void CreateWallPreview()
-    {
-        Color previewColor = new Color(0.6f, 0.8f, 1f);
-        previewObject = new GameObject("BuildPreview");
-
-        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.transform.SetParent(previewObject.transform);
-        body.transform.localPosition = new Vector3(0f, 0.6f, 0f);
-        body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
-        body.GetComponent<Collider>().enabled = false;
-        body.GetComponent<Renderer>().material = MakePreviewMat(previewColor);
-
-        for (int c = -1; c <= 1; c++)
-        {
-            GameObject m = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            m.transform.SetParent(previewObject.transform);
-            m.transform.localPosition = new Vector3(c * 0.7f, 1.45f, 0f);
-            m.transform.localScale = new Vector3(0.35f, 0.35f, 0.45f);
-            m.GetComponent<Collider>().enabled = false;
-            m.GetComponent<Renderer>().material = MakePreviewMat(previewColor * 0.8f);
-        }
-    }
-
     // ============ PLACEMENT ============
 
     void PlaceDefense(Vector3 position)
@@ -318,60 +466,46 @@ public class BuildingSystem : MonoBehaviour
         switch (SelectedDefenseType)
         {
             case DefenseType.Gun:
-                // Long gun barrel
                 AddBarrel(parent, new Vector3(0f, 0.7f, 0.35f), new Vector3(0.08f, 0.35f, 0.08f), col * 0.5f);
-                // Ammo box
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(0.3f, 0.15f, 0f),
                     new Vector3(0.18f, 0.12f, 0.15f), new Color(0.3f, 0.3f, 0.25f));
-                // Sight
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.82f, 0.1f),
                     new Vector3(0.02f, 0.08f, 0.02f), new Color(0.2f, 0.2f, 0.2f));
                 break;
 
             case DefenseType.Crossbow:
-                // Crossbow arms
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.15f),
                     new Vector3(0.5f, 0.04f, 0.06f), new Color(0.4f, 0.28f, 0.12f));
-                // Bolt rail
                 AddBarrel(parent, new Vector3(0f, 0.7f, 0.25f), new Vector3(0.04f, 0.2f, 0.04f), col * 0.6f);
-                // String
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, 0.08f),
                     new Vector3(0.48f, 0.01f, 0.01f), new Color(0.8f, 0.75f, 0.6f));
-                // Bolt rack
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.25f, 0.15f, 0f),
                     new Vector3(0.1f, 0.2f, 0.1f), new Color(0.4f, 0.3f, 0.15f));
                 break;
 
             case DefenseType.RocketLauncher:
-                // Dual tubes
                 for (int i = 0; i < 2; i++)
                 {
                     float side = (i == 0) ? -0.1f : 0.1f;
                     AddBarrel(parent, new Vector3(side, 0.7f, 0.3f), new Vector3(0.1f, 0.25f, 0.1f), col * 0.5f);
-                    // Exhaust vents
                     AddDecor(parent, PrimitiveType.Cylinder, new Vector3(side, 0.7f, -0.05f),
                         new Vector3(0.12f, 0.02f, 0.12f), new Color(0.25f, 0.25f, 0.2f));
                 }
-                // Targeting box
                 AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.88f, 0f),
                     new Vector3(0.12f, 0.06f, 0.08f), accentCol);
                 break;
 
             case DefenseType.PlasmaGun:
-                // Energy coil barrel
                 AddBarrel(parent, new Vector3(0f, 0.7f, 0.3f), new Vector3(0.12f, 0.22f, 0.12f), col * 0.5f);
-                // Glowing core
                 GameObject core = AddDecor(parent, PrimitiveType.Sphere, new Vector3(0f, 0.7f, 0.18f),
                     new Vector3(0.1f, 0.1f, 0.1f), accentCol);
                 core.GetComponent<Renderer>().material = MakeGlowMat(accentCol, 3f);
-                // Side capacitors
                 for (int i = 0; i < 2; i++)
                 {
                     float side = (i == 0) ? -0.18f : 0.18f;
                     AddDecor(parent, PrimitiveType.Cube, new Vector3(side, 0.65f, 0.1f),
                         new Vector3(0.06f, 0.15f, 0.08f), col * 0.7f);
                 }
-                // Antenna
                 AddDecor(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.95f, 0f),
                     new Vector3(0.02f, 0.1f, 0.02f), new Color(0.3f, 0.3f, 0.3f));
                 break;
@@ -415,43 +549,35 @@ public class BuildingSystem : MonoBehaviour
         GameObject parent = new GameObject("Mine");
         parent.transform.position = position;
 
-        // Foundation
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.06f, 0),
             new Vector3(1.4f, 0.12f, 1.4f), new Color(0.3f, 0.26f, 0.18f));
 
-        // Shaft
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
         shaft.transform.SetParent(parent.transform);
         shaft.transform.localPosition = new Vector3(0f, 0.4f, 0f);
         shaft.transform.localScale = new Vector3(1.2f, 0.7f, 1.2f);
         shaft.GetComponent<Renderer>().material = MakeMat(new Color(0.35f, 0.3f, 0.2f));
 
-        // Support beams
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
             new Vector3(0.06f, 0.7f, 0.04f), woodBrown * 0.7f);
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.4f, -0.61f),
             new Vector3(0.7f, 0.06f, 0.04f), woodBrown * 0.7f);
 
-        // Roof
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.82f, 0),
             new Vector3(1.5f, 0.1f, 1.5f), woodBrown);
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.78f, 0),
             new Vector3(1.55f, 0.04f, 1.55f), woodBrown * 0.7f);
 
-        // Mine entrance
         AddDecor(parent, PrimitiveType.Cube, new Vector3(0, 0.3f, -0.61f),
             new Vector3(0.35f, 0.45f, 0.02f), new Color(0.05f, 0.05f, 0.05f));
 
-        // Cart
         AddDecor(parent, PrimitiveType.Cube, new Vector3(-0.9f, 0.18f, 0),
             new Vector3(0.4f, 0.22f, 0.35f), new Color(0.4f, 0.35f, 0.3f));
 
-        // Gold pile
         GameObject gold = AddDecor(parent, PrimitiveType.Sphere,
             new Vector3(-0.9f, 0.35f, 0), new Vector3(0.25f, 0.15f, 0.22f), new Color(0.9f, 0.75f, 0.2f));
         gold.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.9f, 0.75f, 0.2f), 0.8f);
 
-        // Rails
         for (int i = 0; i < 2; i++)
         {
             float z = (i == 0) ? -0.12f : 0.12f;
@@ -460,58 +586,6 @@ public class BuildingSystem : MonoBehaviour
         }
 
         parent.AddComponent<Mine>();
-        CancelBuild();
-    }
-
-    void PlaceWall(Vector3 position)
-    {
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Wall.GetBuildCost()))
-            return;
-
-        Vector3 towerPos = new Vector3(0f, 0f, 18f);
-        GameObject parent = new GameObject("Wall");
-        parent.transform.position = position;
-        Vector3 dir = (position - towerPos).normalized;
-        dir.y = 0;
-        if (dir != Vector3.zero)
-            parent.transform.forward = dir;
-
-        Color wallStone = new Color(0.5f, 0.45f, 0.38f);
-
-        // Wall base
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.1f, 0f),
-            new Vector3(2.3f, 0.2f, 0.5f), wallStone * 0.8f);
-
-        // Main body
-        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        body.transform.SetParent(parent.transform);
-        body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-        body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
-        body.GetComponent<Renderer>().material = MakeMat(wallStone);
-
-        // Top trim
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 1.35f, 0f),
-            new Vector3(2.3f, 0.1f, 0.45f), wallStone * 0.9f);
-
-        // Crenellations
-        for (int c = -1; c <= 1; c++)
-        {
-            AddDecor(parent, PrimitiveType.Cube, new Vector3(c * 0.7f, 1.6f, 0f),
-                new Vector3(0.4f, 0.4f, 0.5f), new Color(0.48f, 0.43f, 0.35f));
-        }
-
-        // Arrow slit
-        AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.7f, -0.21f),
-            new Vector3(0.06f, 0.22f, 0.02f), new Color(0.08f, 0.08f, 0.1f));
-
-        // Stone texture lines
-        for (int row = 0; row < 3; row++)
-        {
-            AddDecor(parent, PrimitiveType.Cube, new Vector3(0f, 0.3f + row * 0.35f, -0.21f),
-                new Vector3(2.22f, 0.02f, 0.01f), wallStone * 0.7f);
-        }
-
-        parent.AddComponent<Wall>();
         CancelBuild();
     }
 

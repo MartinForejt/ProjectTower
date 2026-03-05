@@ -16,7 +16,7 @@ public class CameraController : MonoBehaviour
 
         // Wide overview: tower + full battlefield + enemy spawn zone visible
         transform.position = new Vector3(0f, 60f, -30f);
-        transform.eulerAngles = new Vector3(50f, 0f, 0f);
+        transform.eulerAngles = new Vector3(62f, 0f, 0f);
 
         if (cam != null)
             cam.fieldOfView = 70f;

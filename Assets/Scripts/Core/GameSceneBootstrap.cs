@@ -28,7 +28,6 @@ public class GameSceneBootstrap : MonoBehaviour
         CreateForest();
         CreateTower();
         CreateMoat();
-        CreateWalls();
         CreateStartingMine();
         CreateAtmosphericLights();
         CreateBattlefieldDecor();
@@ -231,7 +230,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         GameObject tower = new GameObject("Tower");
         tower.transform.position = TowerPos;
-        float s = 0.5f;
+        float s = 0.35f;
 
         Color stoneLight = new Color(0.55f, 0.48f, 0.38f);
         Color stoneMid = new Color(0.48f, 0.42f, 0.34f);
@@ -380,7 +379,7 @@ public class GameSceneBootstrap : MonoBehaviour
     {
         GameObject moat = new GameObject("Moat");
         moat.transform.position = TowerPos;
-        float s = 0.5f;
+        float s = 0.35f;
 
         // Moat water
         GameObject moatWater = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -442,140 +441,6 @@ public class GameSceneBootstrap : MonoBehaviour
         }
 
         moat.AddComponent<Moat>();
-    }
-
-    void CreateWalls()
-    {
-        float wallRadius = 4.5f;
-        int segments = 7;
-        float arcStart = -70f;
-        float arcEnd = 70f;
-        float arcStep = (arcEnd - arcStart) / (segments - 1);
-
-        Color wallStone = new Color(0.5f, 0.45f, 0.38f);
-        Color wallStoneDark = new Color(0.42f, 0.38f, 0.32f);
-        Color wallTrim = new Color(0.45f, 0.4f, 0.33f);
-
-        for (int i = 0; i < segments; i++)
-        {
-            float angleDeg = arcStart + i * arcStep;
-            float angleRad = (angleDeg + 270f) * Mathf.Deg2Rad;
-
-            Vector3 pos = TowerPos + new Vector3(
-                Mathf.Cos(angleRad) * wallRadius, 0f, Mathf.Sin(angleRad) * wallRadius);
-            Vector3 outDir = (pos - TowerPos).normalized;
-
-            GameObject wallParent = new GameObject("Wall_" + i);
-            wallParent.transform.position = pos;
-            wallParent.transform.forward = outDir;
-
-            // Wall base (slightly wider)
-            MakeDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(0f, 0.1f, 0f), new Vector3(2.3f, 0.2f, 0.5f), wallStoneDark);
-
-            // Main wall body
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            body.transform.SetParent(wallParent.transform);
-            body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-            body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
-            body.name = "WallBody";
-            body.GetComponent<Renderer>().material = MakeMat(wallStone);
-
-            // Stone texture (dark horizontal lines)
-            for (int row = 0; row < 3; row++)
-            {
-                MakeDecor(wallParent, PrimitiveType.Cube,
-                    new Vector3(0f, 0.3f + row * 0.35f, -0.21f),
-                    new Vector3(2.22f, 0.02f, 0.01f), wallStoneDark * 0.8f);
-            }
-
-            // Top trim
-            MakeDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(0f, 1.35f, 0f), new Vector3(2.3f, 0.1f, 0.45f), wallTrim);
-
-            // Crenellations
-            for (int c = -1; c <= 1; c++)
-            {
-                MakeDecor(wallParent, PrimitiveType.Cube,
-                    new Vector3(c * 0.7f, 1.6f, 0f), new Vector3(0.4f, 0.4f, 0.5f), wallTrim);
-            }
-
-            // Arrow slit in wall center
-            MakeDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(0f, 0.7f, -0.21f), new Vector3(0.06f, 0.22f, 0.02f), new Color(0.08f, 0.08f, 0.1f));
-
-            // Inner walkway platform
-            MakeDecor(wallParent, PrimitiveType.Cube,
-                new Vector3(0f, 0.9f, 0.28f), new Vector3(2f, 0.06f, 0.3f), wallStoneDark);
-
-            // Torch on every other wall
-            if (i % 2 == 0)
-            {
-                MakeDecor(wallParent, PrimitiveType.Cylinder,
-                    new Vector3(0f, 1.1f, -0.25f), new Vector3(0.05f, 0.2f, 0.05f), new Color(0.3f, 0.2f, 0.1f));
-
-                GameObject flame = MakeDecor(wallParent, PrimitiveType.Sphere,
-                    new Vector3(0f, 1.4f, -0.25f), new Vector3(0.1f, 0.15f, 0.1f), new Color(1f, 0.6f, 0.1f));
-                flame.GetComponent<Renderer>().material = MakeGlowMat(new Color(1f, 0.6f, 0.1f), 4f);
-
-                GameObject lightObj = new GameObject("WallTorchLight");
-                lightObj.transform.SetParent(wallParent.transform);
-                lightObj.transform.localPosition = new Vector3(0f, 1.5f, -0.25f);
-                Light light = lightObj.AddComponent<Light>();
-                light.type = LightType.Point;
-                light.color = new Color(1f, 0.65f, 0.3f);
-                light.range = 4f;
-                light.intensity = 1.2f;
-            }
-
-            wallParent.AddComponent<Wall>();
-        }
-
-        // Corner towers
-        for (int i = 0; i < 2; i++)
-        {
-            float angleDeg = (i == 0) ? arcStart : arcEnd;
-            float angleRad = (angleDeg + 270f) * Mathf.Deg2Rad;
-            Vector3 pos = TowerPos + new Vector3(
-                Mathf.Cos(angleRad) * wallRadius, 0f, Mathf.Sin(angleRad) * wallRadius);
-
-            GameObject cornerTower = new GameObject("CornerTower_" + i);
-            cornerTower.transform.position = pos;
-
-            // Base
-            MakeDecor(cornerTower, PrimitiveType.Cylinder,
-                new Vector3(0f, 0.1f, 0f), new Vector3(1f, 0.2f, 1f), new Color(0.4f, 0.36f, 0.3f));
-
-            // Body
-            GameObject tBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            tBase.transform.SetParent(cornerTower.transform);
-            tBase.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-            tBase.transform.localScale = new Vector3(0.8f, 1.6f, 0.8f);
-            tBase.GetComponent<Renderer>().material = MakeMat(new Color(0.48f, 0.42f, 0.35f));
-
-            // Top platform
-            MakeDecor(cornerTower, PrimitiveType.Cylinder,
-                new Vector3(0f, 1.8f, 0f), new Vector3(0.95f, 0.12f, 0.95f), wallTrim);
-
-            // Crenellations
-            for (int c = 0; c < 5; c++)
-            {
-                float a = c * 72f * Mathf.Deg2Rad;
-                MakeDecor(cornerTower, PrimitiveType.Cube,
-                    new Vector3(Mathf.Sin(a) * 0.38f, 2f, Mathf.Cos(a) * 0.38f),
-                    new Vector3(0.18f, 0.25f, 0.18f), wallTrim);
-            }
-
-            // Pointed roof
-            MakeDecor(cornerTower, PrimitiveType.Capsule,
-                new Vector3(0f, 2.3f, 0f), new Vector3(0.6f, 0.35f, 0.6f), new Color(0.22f, 0.18f, 0.35f));
-
-            // Banner
-            MakeDecor(cornerTower, PrimitiveType.Cylinder,
-                new Vector3(0f, 2.8f, 0f), new Vector3(0.03f, 0.4f, 0.03f), new Color(0.3f, 0.3f, 0.3f));
-            MakeDecor(cornerTower, PrimitiveType.Cube,
-                new Vector3(0.15f, 3.0f, 0f), new Vector3(0.3f, 0.2f, 0.02f), new Color(0.8f, 0.15f, 0.15f));
-        }
     }
 
     void CreateStartingMine()

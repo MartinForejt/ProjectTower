@@ -9,6 +9,7 @@ public class GameHUD : MonoBehaviour
     private Texture2D redTex;
     private Texture2D blueTex;
     private Texture2D darkTex;
+    private Texture2D greenTex;
     private bool stylesInitialized;
 
     void InitStyles()
@@ -45,6 +46,7 @@ public class GameHUD : MonoBehaviour
         redTex = MakeTexture(new Color(0.8f, 0.15f, 0.15f));
         blueTex = MakeTexture(new Color(0.2f, 0.4f, 0.9f));
         darkTex = MakeTexture(new Color(0.15f, 0.15f, 0.15f, 0.7f));
+        greenTex = MakeTexture(new Color(0.15f, 0.5f, 0.15f));
 
         stylesInitialized = true;
     }
@@ -76,13 +78,11 @@ public class GameHUD : MonoBehaviour
     {
         GUI.DrawTexture(new Rect(0, 0, Screen.width, 45), darkTex);
 
-        // Coins
         int coins = EconomyManager.Instance != null ? EconomyManager.Instance.Coins : 0;
         GUIStyle coinStyle = new GUIStyle(headerStyle) { alignment = TextAnchor.MiddleLeft };
         coinStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
         GUI.Label(new Rect(200, 8, 200, 30), $"Gold: {coins}", coinStyle);
 
-        // Wave info
         if (WaveManager.Instance != null)
         {
             GUI.Label(new Rect(Screen.width / 2 - 100, 8, 200, 30), $"Wave: {WaveManager.Instance.CurrentWave}", headerStyle);
@@ -90,7 +90,6 @@ public class GameHUD : MonoBehaviour
             GUIStyle smallLabel = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter };
             GUI.Label(new Rect(Screen.width / 2 + 100, 8, 200, 30), $"Enemies: {WaveManager.Instance.EnemiesAlive}", smallLabel);
 
-            // Countdown / next wave timer
             if (WaveManager.Instance.IsCountingDown)
             {
                 GUIStyle countdownStyle = new GUIStyle(headerStyle);
@@ -111,7 +110,6 @@ public class GameHUD : MonoBehaviour
             }
         }
 
-        // Tower HP bar
         if (Tower.Instance != null)
         {
             float barX = Screen.width - 340;
@@ -129,7 +127,6 @@ public class GameHUD : MonoBehaviour
             GUI.DrawTexture(new Rect(barX + 201, 9, 100 * shieldPct, 12), blueTex);
         }
 
-        // Pause button
         if (GUI.Button(new Rect(Screen.width - 90, 8, 80, 30), "Pause", smallButtonStyle))
         {
             if (GameManager.Instance.CurrentState == GameState.Playing)
@@ -166,7 +163,6 @@ public class GameHUD : MonoBehaviour
 
     void DrawPlayingHUD()
     {
-        // Big countdown overlay when counting down
         if (WaveManager.Instance != null && WaveManager.Instance.IsCountingDown)
         {
             float t = WaveManager.Instance.CountdownTimer;
@@ -241,7 +237,7 @@ public class GameHUD : MonoBehaviour
         float panelX = 5;
         float panelY = 55;
         float panelW = 180;
-        float panelH = 370;
+        float panelH = 470;
 
         GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), darkTex);
 
@@ -277,12 +273,24 @@ public class GameHUD : MonoBehaviour
             $"Mine ({Mine.GetBuildCost()}g)", smallButtonStyle))
             BuildingSystem.Instance?.StartPlaceMine();
 
-        if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
-            $"Wall ({Wall.GetBuildCost()}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceWall();
+        // Wall auto-place button
+        if (BuildingSystem.Instance != null)
+        {
+            int wallCount = BuildingSystem.Instance.WallCount;
+            int wallMax = BuildingSystem.Instance.WallMaxSlots;
+            string wallLabel = wallCount < wallMax
+                ? $"Wall ({Wall.GetBuildCost()}g) [{wallCount}/{wallMax}]"
+                : $"Wall [FULL {wallMax}/{wallMax}]";
+
+            if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH), wallLabel, smallButtonStyle))
+            {
+                if (wallCount < wallMax)
+                    BuildingSystem.Instance.AutoPlaceWall();
+            }
+        }
 
         btnY += spacing * 2 + 10;
-        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "TOWER UPGRADES", sectionStyle);
+        GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "UPGRADES", sectionStyle);
         btnY += 24;
 
         if (Tower.Instance != null)
@@ -294,6 +302,17 @@ public class GameHUD : MonoBehaviour
             if (GUI.Button(new Rect(panelX + 10, btnY + spacing, panelW - 20, btnH),
                 $"Shield Lv{Tower.Instance.ShieldLevel} ({Tower.Instance.GetShieldUpgradeCost()}g)", smallButtonStyle))
                 Tower.Instance.UpgradeShield();
+        }
+
+        // Wall upgrade button
+        if (BuildingSystem.Instance != null && BuildingSystem.Instance.WallCount > 0)
+        {
+            int wallLvl = BuildingSystem.Instance.WallLevel;
+            int wallUpCost = Wall.GetUpgradeCost(wallLvl);
+            string shieldNote = wallLvl >= 11 ? " +Shield@12" : "";
+            if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
+                $"Walls Lv{wallLvl} ({wallUpCost}g){shieldNote}", smallButtonStyle))
+                BuildingSystem.Instance.UpgradeAllWalls();
         }
 
         // Build mode indicator
