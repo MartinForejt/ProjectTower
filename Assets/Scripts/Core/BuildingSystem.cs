@@ -35,7 +35,13 @@ public class BuildingSystem : MonoBehaviour
     public int WallLevel => wallLevel;
 
     // Tower-mounted defenses
+    public const int MAX_TOWER_DEFENSES = 5;
+    private System.Collections.Generic.List<Defense> towerDefenses = new System.Collections.Generic.List<Defense>();
     private int towerDefenseCount;
+    private int turretLevel = 1;
+
+    public int TowerDefenseCount => towerDefenseCount;
+    public int TurretLevel => turretLevel;
 
     public event System.Action<BuildMode> OnBuildModeChanged;
 
@@ -235,6 +241,8 @@ public class BuildingSystem : MonoBehaviour
 
     public void AddTowerDefense(DefenseType type)
     {
+        if (towerDefenseCount >= MAX_TOWER_DEFENSES) return;
+
         int cost = Defense.GetBuildCost(type);
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
             return;
@@ -260,9 +268,32 @@ public class BuildingSystem : MonoBehaviour
         headVO.Init(headData, vs);
 
         Defense def = parent.AddComponent<Defense>();
-        def.InitTowerMount(type, angle, height);
+        def.InitTowerMount(type, angle, height, turretLevel);
 
+        towerDefenses.Add(def);
         towerDefenseCount++;
+    }
+
+    public void UpgradeAllTurrets()
+    {
+        if (turretLevel >= Defense.MAX_LEVEL) return;
+        if (towerDefenseCount == 0) return;
+
+        int cost = GetTurretUpgradeCost();
+        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(cost))
+            return;
+
+        turretLevel++;
+        foreach (var def in towerDefenses)
+        {
+            if (def != null)
+                def.SetLevel(turretLevel);
+        }
+    }
+
+    public int GetTurretUpgradeCost()
+    {
+        return 40 + turretLevel * 30;
     }
 
     // ============ MINE PLACEMENT ============

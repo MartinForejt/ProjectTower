@@ -237,7 +237,7 @@ public class GameHUD : MonoBehaviour
         float panelX = 5;
         float panelY = 55;
         float panelW = 180;
-        float panelH = 470;
+        float panelH = 505;
 
         GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), darkTex);
 
@@ -245,10 +245,20 @@ public class GameHUD : MonoBehaviour
 
         GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 22), "TOWER GUNS", sectionStyle);
 
+        // Turret slots indicator
+        int turretCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
+        int turretMax = BuildingSystem.MAX_TOWER_DEFENSES;
+        GUIStyle slotStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleRight, fontSize = 12 };
+        slotStyle.normal.textColor = turretCount >= turretMax ? new Color(1f, 0.3f, 0.3f) : Color.cyan;
+        GUI.Label(new Rect(panelX + 10, panelY + 5, panelW - 20, 22),
+            $"Slots: {turretCount}/{turretMax}", slotStyle);
+
         float btnY = panelY + 30;
         float btnH = 28;
         float spacing = 32;
+        bool slotsFull = turretCount >= turretMax;
 
+        GUI.enabled = !slotsFull;
         if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
             $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallButtonStyle))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.Gun);
@@ -264,6 +274,7 @@ public class GameHUD : MonoBehaviour
         if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 3, panelW - 20, btnH),
             $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}g)", smallButtonStyle))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.PlasmaGun);
+        GUI.enabled = true;
 
         btnY += spacing * 4 + 10;
         GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "STRUCTURES", sectionStyle);
@@ -304,13 +315,33 @@ public class GameHUD : MonoBehaviour
                 Tower.Instance.UpgradeShield();
         }
 
+        // Turret upgrade button
+        if (BuildingSystem.Instance != null && BuildingSystem.Instance.TowerDefenseCount > 0)
+        {
+            int tLvl = BuildingSystem.Instance.TurretLevel;
+            if (tLvl < Defense.MAX_LEVEL)
+            {
+                int tUpCost = BuildingSystem.Instance.GetTurretUpgradeCost();
+                if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
+                    $"Guns Lv{tLvl} ({tUpCost}g)", smallButtonStyle))
+                    BuildingSystem.Instance.UpgradeAllTurrets();
+            }
+            else
+            {
+                GUI.enabled = false;
+                GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
+                    $"Guns Lv{tLvl} (MAX)", smallButtonStyle);
+                GUI.enabled = true;
+            }
+        }
+
         // Wall upgrade button
         if (BuildingSystem.Instance != null && BuildingSystem.Instance.WallCount > 0)
         {
             int wallLvl = BuildingSystem.Instance.WallLevel;
             int wallUpCost = Wall.GetUpgradeCost(wallLvl);
             string shieldNote = wallLvl >= 11 ? " +Shield@12" : "";
-            if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 2, panelW - 20, btnH),
+            if (GUI.Button(new Rect(panelX + 10, btnY + spacing * 3, panelW - 20, btnH),
                 $"Walls Lv{wallLvl} ({wallUpCost}g){shieldNote}", smallButtonStyle))
                 BuildingSystem.Instance.UpgradeAllWalls();
         }

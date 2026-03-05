@@ -10,14 +10,21 @@ public enum DefenseType
 
 public class Defense : MonoBehaviour
 {
+    public const int MAX_LEVEL = 10;
+
     protected DefenseType defenseType;
-    protected float damage = 10f;
-    protected float fireRate = 1f;
-    protected float range = 15f;
-    protected int upgradeCost = 50;
+    protected float damage;
+    protected float fireRate;
+    protected float range;
+
+    // Base stats (before level scaling)
+    private float baseDamage;
+    private float baseFireRate;
+    private float baseRange;
+    private float baseOrbitSpeed;
 
     public DefenseType Type => defenseType;
-    public int Level { get; protected set; } = 1;
+    public int Level { get; private set; } = 1;
     public float Range => range;
 
     protected float fireCooldown;
@@ -35,38 +42,61 @@ public class Defense : MonoBehaviour
     private float orbitRadius = 1.8f;
     private float orbitAngle;
     private float orbitHeight;
-    private float orbitSpeed = 120f;
+    private float orbitSpeed;
 
-    public void InitTowerMount(DefenseType type, float startAngle, float height)
+    public void InitTowerMount(DefenseType type, float startAngle, float height, int level)
     {
         defenseType = type;
-        ApplyTypeStats();
+        ApplyBaseStats();
+        Level = Mathf.Clamp(level, 1, MAX_LEVEL);
+        ApplyLevelScaling();
         orbitAngle = startAngle;
         orbitHeight = height;
         UpdateOrbitPosition();
     }
 
-    void ApplyTypeStats()
+    void ApplyBaseStats()
     {
         switch (defenseType)
         {
             case DefenseType.Gun:
-                damage = 8f; fireRate = 3.5f; range = 18f; upgradeCost = 40;
+                baseDamage = 6f; baseFireRate = 4f; baseRange = 18f; baseOrbitSpeed = 180f;
                 recoilDistance = 0.1f; recoilDuration = 0.08f;
                 break;
             case DefenseType.Crossbow:
-                damage = 18f; fireRate = 1.2f; range = 28f; upgradeCost = 35;
+                baseDamage = 15f; baseFireRate = 1.5f; baseRange = 28f; baseOrbitSpeed = 140f;
                 recoilDistance = 0.06f; recoilDuration = 0.15f;
                 break;
             case DefenseType.RocketLauncher:
-                damage = 50f; fireRate = 0.4f; range = 30f; upgradeCost = 80;
+                baseDamage = 30f; baseFireRate = 0.4f; baseRange = 30f; baseOrbitSpeed = 100f;
                 recoilDistance = 0.2f; recoilDuration = 0.2f;
                 break;
             case DefenseType.PlasmaGun:
-                damage = 30f; fireRate = 1.8f; range = 22f; upgradeCost = 100;
+                baseDamage = 80f; baseFireRate = 0.25f; baseRange = 22f; baseOrbitSpeed = 60f;
                 recoilDistance = 0.12f; recoilDuration = 0.1f;
                 break;
         }
+    }
+
+    void ApplyLevelScaling()
+    {
+        float lvl = Level - 1;
+        damage = baseDamage * Mathf.Pow(1.15f, lvl);
+        fireRate = baseFireRate * Mathf.Pow(1.08f, lvl);
+        range = baseRange + lvl * 0.5f;
+        orbitSpeed = baseOrbitSpeed + lvl * 5f;
+    }
+
+    public void SetLevel(int level)
+    {
+        Level = Mathf.Clamp(level, 1, MAX_LEVEL);
+        ApplyLevelScaling();
+    }
+
+    public int GetSalvoCount()
+    {
+        if (defenseType != DefenseType.RocketLauncher) return 1;
+        return 2 + (Level - 1) / 2; // lv1:2, lv3:3, lv5:4, lv7:5, lv9:6
     }
 
     void Start()
@@ -171,11 +201,9 @@ public class Defense : MonoBehaviour
         Vector3 dir = currentTarget.position - headTransform.position;
         if (dir.sqrMagnitude < 0.001f) return;
 
-        // Calculate desired aim as local rotation relative to parent (which faces outward)
         Quaternion worldLook = Quaternion.LookRotation(dir);
         Quaternion localLook = Quaternion.Inverse(transform.rotation) * worldLook;
 
-        // Clamp to small adjustments — the orbit already positions us roughly correct
         Vector3 euler = localLook.eulerAngles;
         if (euler.x > 180f) euler.x -= 360f;
         if (euler.y > 180f) euler.y -= 360f;
@@ -200,21 +228,38 @@ public class Defense : MonoBehaviour
         if (headTransform != null)
             headTransform.localPosition = headOriginalLocalPos + Vector3.forward * -recoilDistance;
 
-        // Spawn projectile
-        GameObject projObj = new GameObject("Projectile_" + defenseType);
-        projObj.transform.position = spawnPos;
-        Projectile p = projObj.AddComponent<Projectile>();
-        p.Init(currentTarget, damage, defenseType);
+        if (defenseType == DefenseType.RocketLauncher)
+        {
+            // Multi-rocket salvo with scatter
+            int count = GetSalvoCount();
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 scatter = Random.insideUnitSphere * 2.5f;
+                scatter.y = 0;
+                Vector3 rocketSpawn = spawnPos + new Vector3(
+                    Random.Range(-0.2f, 0.2f), Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
 
-        // Muzzle flash + sparks
+                GameObject projObj = new GameObject("Rocket_" + i);
+                projObj.transform.position = rocketSpawn;
+                Projectile p = projObj.AddComponent<Projectile>();
+                p.InitAtPosition(currentTarget.position + scatter + Vector3.up * 0.5f, damage, defenseType);
+            }
+        }
+        else
+        {
+            // Single projectile
+            GameObject projObj = new GameObject("Projectile_" + defenseType);
+            projObj.transform.position = spawnPos;
+            Projectile p = projObj.AddComponent<Projectile>();
+            p.Init(currentTarget, damage, defenseType);
+        }
+
         SpawnMuzzleFlash(spawnPos);
         SpawnMuzzleSparks(spawnPos);
 
-        // Shell casing for gun
         if (defenseType == DefenseType.Gun)
             SpawnShellCasing(spawnPos);
 
-        // Smoke puff for rocket
         if (defenseType == DefenseType.RocketLauncher)
             SpawnSmokePuff(spawnPos, 0.4f);
 
@@ -341,20 +386,6 @@ public class Defense : MonoBehaviour
         mat.SetColor("_EmissionColor", color * intensity);
         return mat;
     }
-
-    public virtual void Upgrade()
-    {
-        int cost = GetUpgradeCost();
-        if (EconomyManager.Instance != null && EconomyManager.Instance.SpendCoins(cost))
-        {
-            Level++;
-            damage *= 1.3f;
-            fireRate *= 1.1f;
-            range += 1f;
-        }
-    }
-
-    public int GetUpgradeCost() => upgradeCost + Level * 25;
 
     public static int GetBuildCost(DefenseType type)
     {

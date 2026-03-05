@@ -18,17 +18,33 @@ public class Projectile : MonoBehaviour
         if (target != null)
             lastKnownPos = target.position + Vector3.up * 0.5f;
 
+        ApplySpeed(type);
+        CreateVisual(type);
+        Destroy(gameObject, 6f);
+    }
+
+    public void InitAtPosition(Vector3 position, float damage, DefenseType type)
+    {
+        this.target = null;
+        this.damage = damage;
+        this.projectileType = type;
+        lastKnownPos = position;
+
+        ApplySpeed(type);
+        CreateVisual(type);
+        Destroy(gameObject, 6f);
+    }
+
+    void ApplySpeed(DefenseType type)
+    {
         switch (type)
         {
             case DefenseType.Gun: speed = 50f; break;
             case DefenseType.Crossbow: speed = 35f; break;
             case DefenseType.RocketLauncher: speed = 18f; aoeRadius = 3f; break;
-            case DefenseType.PlasmaGun: speed = 28f; aoeRadius = 1.5f; break;
+            case DefenseType.PlasmaGun: speed = 12f; aoeRadius = 2.5f; break;
             default: speed = 30f; break;
         }
-
-        CreateVisual(type);
-        Destroy(gameObject, 6f);
     }
 
     Material MakeLitMat(Color color)
@@ -151,14 +167,14 @@ public class Projectile : MonoBehaviour
         GameObject core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         core.transform.SetParent(transform);
         core.transform.localPosition = Vector3.zero;
-        core.transform.localScale = Vector3.one * 0.18f;
+        core.transform.localScale = Vector3.one * 0.35f;
         Destroy(core.GetComponent<Collider>());
-        core.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.2f, 0.4f, 1f), 6f);
+        core.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.2f, 0.4f, 1f), 8f);
 
         GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         shell.transform.SetParent(transform);
         shell.transform.localPosition = Vector3.zero;
-        shell.transform.localScale = Vector3.one * 0.28f;
+        shell.transform.localScale = Vector3.one * 0.5f;
         Destroy(shell.GetComponent<Collider>());
         shell.GetComponent<Renderer>().material = MakeGlowMat(new Color(0.4f, 0.6f, 1f), 3f);
 
