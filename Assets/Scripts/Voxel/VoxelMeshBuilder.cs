@@ -55,13 +55,15 @@ public static class VoxelMeshBuilder
             }
         }
 
-        // Create palette texture
-        int palSize = Mathf.Max(1, colorList.Count);
-        palette = new Texture2D(palSize, 1, TextureFormat.RGBA32, false);
+        // Create palette texture (2D to support large color counts)
+        int palCount = Mathf.Max(1, colorList.Count);
+        int texW = Mathf.Min(palCount, 4096);
+        int texH = Mathf.CeilToInt((float)palCount / texW);
+        palette = new Texture2D(texW, texH, TextureFormat.RGBA32, false);
         palette.filterMode = FilterMode.Point;
         palette.wrapMode = TextureWrapMode.Clamp;
         for (int i = 0; i < colorList.Count; i++)
-            palette.SetPixel(i, 0, colorList[i]);
+            palette.SetPixel(i % texW, i / texW, colorList[i]);
         palette.Apply();
 
         // Generate faces
@@ -72,8 +74,10 @@ public static class VoxelMeshBuilder
             if (!data.Voxels[x, y, z].HasValue) continue;
 
             Color c = data.Voxels[x, y, z].Value;
-            float u = (colorMap[c] + 0.5f) / palSize;
-            Vector2 uv = new Vector2(u, 0.5f);
+            int ci = colorMap[c];
+            float u = (ci % texW + 0.5f) / texW;
+            float v = (ci / texW + 0.5f) / texH;
+            Vector2 uv = new Vector2(u, v);
             Vector3 origin = new Vector3(x, y, z) * voxelSize;
 
             for (int f = 0; f < 6; f++)
@@ -85,9 +89,9 @@ public static class VoxelMeshBuilder
                 if (data.Get(nx, ny, nz).HasValue) continue;
 
                 int idx = verts.Count;
-                for (int v = 0; v < 4; v++)
+                for (int vi = 0; vi < 4; vi++)
                 {
-                    verts.Add(origin + FaceVerts[f][v] * voxelSize);
+                    verts.Add(origin + FaceVerts[f][vi] * voxelSize);
                     uvs.Add(uv);
                 }
                 tris.Add(idx);
