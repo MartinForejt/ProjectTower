@@ -10,7 +10,7 @@ public class CameraController : MonoBehaviour
 
     private Camera cam;
     private float zoomLevel = 0.55f;
-    private Vector3 lookCenter = new Vector3(0f, 0f, 8f);
+    private Vector3 lookCenter = new Vector3(0f, 0f, 18f);
 
     void Start()
     {
