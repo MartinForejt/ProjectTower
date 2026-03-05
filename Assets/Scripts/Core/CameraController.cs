@@ -13,14 +13,13 @@ public class CameraController : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        // Camera positioned south of tower, looking north and angled down
-        // Tower at origin (0,0,0), enemies come from south (negative Z)
-        // This places the tower at the top 1/3 of screen
-        transform.position = new Vector3(0f, 32f, -30f);
-        transform.eulerAngles = new Vector3(48f, 0f, 0f);
+        // Tower at (0, 0, 18). Camera elevated and south, looking north and down.
+        // Wide FOV to see tower at top, walls in middle, and battlefield below.
+        transform.position = new Vector3(0f, 35f, -8f);
+        transform.eulerAngles = new Vector3(58f, 0f, 0f);
 
         if (cam != null)
-            cam.fieldOfView = 55f;
+            cam.fieldOfView = 60f;
     }
 
     void Update()

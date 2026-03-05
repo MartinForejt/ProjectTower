@@ -15,7 +15,12 @@ public class BuildingSystem : MonoBehaviour
     public BuildMode CurrentMode { get; private set; }
     public DefenseType SelectedDefenseType { get; private set; }
 
+    // GUI panel occupies left side — don't place there
+    private const float GUI_PANEL_WIDTH = 195f;
+    private const float GUI_TOP_BAR_HEIGHT = 50f;
+
     private GameObject previewObject;
+    private bool justActivated; // Prevent placing on the same frame as button click
 
     public event System.Action<BuildMode> OnBuildModeChanged;
 
@@ -34,25 +39,43 @@ public class BuildingSystem : MonoBehaviour
         if (CurrentMode == BuildMode.None) return;
         if (Camera.main == null) return;
 
-        // Raycast against all colliders, filter for ground by Y position
+        // Skip one frame after activation to avoid placing on button click
+        if (justActivated)
+        {
+            justActivated = false;
+            return;
+        }
+
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
 
         if (groundPlane.Raycast(ray, out float distance))
         {
             Vector3 hitPoint = ray.GetPoint(distance);
+            hitPoint.y = 0f;
+
+            // Snap to grid for cleaner placement
+            hitPoint.x = Mathf.Round(hitPoint.x * 2f) / 2f;
+            hitPoint.z = Mathf.Round(hitPoint.z * 2f) / 2f;
 
             if (previewObject != null)
             {
-                Vector3 pos = hitPoint;
-                pos.y = 0.5f;
-                previewObject.transform.position = pos;
+                previewObject.transform.position = hitPoint + Vector3.up * 0.01f;
+                previewObject.SetActive(true);
             }
 
-            if (Input.GetMouseButtonDown(0))
+            // Check mouse is not over GUI
+            bool overGUI = Input.mousePosition.x < GUI_PANEL_WIDTH
+                        || Input.mousePosition.y > Screen.height - GUI_TOP_BAR_HEIGHT;
+
+            if (Input.GetMouseButtonDown(0) && !overGUI)
             {
                 TryPlace(hitPoint);
             }
+        }
+        else if (previewObject != null)
+        {
+            previewObject.SetActive(false);
         }
 
         if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -70,7 +93,8 @@ public class BuildingSystem : MonoBehaviour
 
         SelectedDefenseType = type;
         CurrentMode = BuildMode.PlaceDefense;
-        CreatePreview(GetDefenseColor(type));
+        justActivated = true;
+        CreateDefensePreview(GetDefenseColor(type));
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
@@ -81,7 +105,8 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         CurrentMode = BuildMode.PlaceMine;
-        CreatePreviewMine();
+        justActivated = true;
+        CreateBoxPreview(new Vector3(1.2f, 0.7f, 1.2f), new Color(0.9f, 0.75f, 0.2f, 0.4f));
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
@@ -92,29 +117,27 @@ public class BuildingSystem : MonoBehaviour
             return;
 
         CurrentMode = BuildMode.PlaceWall;
-        CreatePreviewWall();
+        justActivated = true;
+        CreateBoxPreview(new Vector3(2.2f, 1.2f, 0.4f), new Color(0.5f, 0.45f, 0.38f, 0.4f));
         OnBuildModeChanged?.Invoke(CurrentMode);
     }
 
     void TryPlace(Vector3 position)
     {
-        position.y = 0f;
+        // Don't place inside the tower area
+        Vector3 towerPos = new Vector3(0f, 0f, 18f);
+        if (Vector3.Distance(position, towerPos) < 3f)
+            return;
 
-        // Don't allow placing too close to tower
-        if (Vector3.Distance(position, Vector3.zero) < 4f)
+        // Don't place in the forest (behind tower)
+        if (position.z > towerPos.z + 3f)
             return;
 
         switch (CurrentMode)
         {
-            case BuildMode.PlaceDefense:
-                PlaceDefense(position);
-                break;
-            case BuildMode.PlaceMine:
-                PlaceMine(position);
-                break;
-            case BuildMode.PlaceWall:
-                PlaceWall(position);
-                break;
+            case BuildMode.PlaceDefense: PlaceDefense(position); break;
+            case BuildMode.PlaceMine: PlaceMine(position); break;
+            case BuildMode.PlaceWall: PlaceWall(position); break;
         }
     }
 
@@ -133,30 +156,30 @@ public class BuildingSystem : MonoBehaviour
 
         Color col = GetDefenseColor(SelectedDefenseType);
 
-        GameObject parent = new GameObject(SelectedDefenseType.ToString() + "Turret");
+        GameObject parent = new GameObject(SelectedDefenseType + "Turret");
         parent.transform.position = position;
 
-        // Turret base
-        GameObject tBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        tBase.transform.SetParent(parent.transform);
-        tBase.transform.localPosition = new Vector3(0f, 0.4f, 0f);
-        tBase.transform.localScale = new Vector3(1f, 0.8f, 1f);
-        tBase.GetComponent<Renderer>().material = MakeMat(col * 0.7f);
+        // Base pedestal
+        GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        pedestal.transform.SetParent(parent.transform);
+        pedestal.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+        pedestal.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
+        pedestal.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.38f, 0.33f));
 
-        // Turret body
-        GameObject tBody = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        tBody.transform.SetParent(parent.transform);
-        tBody.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-        tBody.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
-        tBody.GetComponent<Renderer>().material = MakeMat(col);
-        Destroy(tBody.GetComponent<Collider>());
+        // Turret head
+        GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        head.transform.SetParent(parent.transform);
+        head.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+        head.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+        head.GetComponent<Renderer>().material = MakeMat(col);
+        Destroy(head.GetComponent<Collider>());
 
         // Barrel
         GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         barrel.transform.SetParent(parent.transform);
-        barrel.transform.localPosition = new Vector3(0f, 1.2f, 0.5f);
+        barrel.transform.localPosition = new Vector3(0f, 0.7f, 0.35f);
         barrel.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
-        barrel.transform.localScale = new Vector3(0.15f, 0.5f, 0.15f);
+        barrel.transform.localScale = new Vector3(0.1f, 0.3f, 0.1f);
         barrel.GetComponent<Renderer>().material = MakeMat(col * 0.5f);
         Destroy(barrel.GetComponent<Collider>());
 
@@ -169,23 +192,23 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Mine.GetBuildCost()))
             return;
 
-        GameObject mineParent = new GameObject("Mine");
-        mineParent.transform.position = position;
+        GameObject parent = new GameObject("Mine");
+        parent.transform.position = position;
 
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shaft.transform.SetParent(mineParent.transform);
-        shaft.transform.localPosition = new Vector3(0f, 0.5f, 0f);
-        shaft.transform.localScale = new Vector3(2f, 1f, 2f);
+        shaft.transform.SetParent(parent.transform);
+        shaft.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+        shaft.transform.localScale = new Vector3(1.2f, 0.7f, 1.2f);
         shaft.GetComponent<Renderer>().material = MakeMat(new Color(0.35f, 0.3f, 0.2f));
 
         GameObject roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        roof.transform.SetParent(mineParent.transform);
-        roof.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-        roof.transform.localScale = new Vector3(2.4f, 0.3f, 2.4f);
+        roof.transform.SetParent(parent.transform);
+        roof.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+        roof.transform.localScale = new Vector3(1.5f, 0.15f, 1.5f);
         roof.GetComponent<Renderer>().material = MakeMat(new Color(0.4f, 0.25f, 0.1f));
         Destroy(roof.GetComponent<Collider>());
 
-        mineParent.AddComponent<Mine>();
+        parent.AddComponent<Mine>();
         CancelBuild();
     }
 
@@ -194,61 +217,65 @@ public class BuildingSystem : MonoBehaviour
         if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(Wall.GetBuildCost()))
             return;
 
-        GameObject wallParent = new GameObject("Wall");
-        wallParent.transform.position = position;
-        wallParent.transform.LookAt(Vector3.zero);
+        Vector3 towerPos = new Vector3(0f, 0f, 18f);
+        GameObject parent = new GameObject("Wall");
+        parent.transform.position = position;
+        // Walls face away from tower
+        Vector3 dir = (position - towerPos).normalized;
+        dir.y = 0;
+        if (dir != Vector3.zero)
+            parent.transform.forward = dir;
 
-        GameObject wallBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wallBase.transform.SetParent(wallParent.transform);
-        wallBase.transform.localPosition = new Vector3(0f, 1f, 0f);
-        wallBase.transform.localScale = new Vector3(3.5f, 2f, 0.7f);
-        wallBase.GetComponent<Renderer>().material = MakeMat(new Color(0.5f, 0.45f, 0.38f));
+        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        body.transform.SetParent(parent.transform);
+        body.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+        body.transform.localScale = new Vector3(2.2f, 1.2f, 0.4f);
+        body.GetComponent<Renderer>().material = MakeMat(new Color(0.5f, 0.45f, 0.38f));
 
+        // Crenellations
         for (int c = -1; c <= 1; c++)
         {
-            GameObject cren = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cren.transform.SetParent(wallParent.transform);
-            cren.transform.localPosition = new Vector3(c * 1.2f, 2.3f, 0f);
-            cren.transform.localScale = new Vector3(0.6f, 0.6f, 0.75f);
-            cren.GetComponent<Renderer>().material = MakeMat(new Color(0.48f, 0.43f, 0.36f));
-            Destroy(cren.GetComponent<Collider>());
+            GameObject m = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            m.transform.SetParent(parent.transform);
+            m.transform.localPosition = new Vector3(c * 0.7f, 1.45f, 0f);
+            m.transform.localScale = new Vector3(0.35f, 0.35f, 0.45f);
+            m.GetComponent<Renderer>().material = MakeMat(new Color(0.48f, 0.43f, 0.35f));
+            Destroy(m.GetComponent<Collider>());
         }
 
-        wallParent.AddComponent<Wall>();
+        parent.AddComponent<Wall>();
         CancelBuild();
     }
 
-    void CreatePreview(Color color)
+    void CreateDefensePreview(Color color)
     {
         previewObject = new GameObject("BuildPreview");
 
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         body.transform.SetParent(previewObject.transform);
-        body.transform.localPosition = new Vector3(0f, 0.4f, 0f);
-        body.transform.localScale = new Vector3(1f, 0.8f, 1f);
+        body.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+        body.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
         body.GetComponent<Collider>().enabled = false;
-        color.a = 0.5f;
+        color.a = 0.4f;
         body.GetComponent<Renderer>().material = MakeMat(color);
+
+        // Range indicator ring
+        GameObject range = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        range.transform.SetParent(previewObject.transform);
+        range.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+        range.transform.localScale = new Vector3(15f, 0.01f, 15f); // Default range ~15
+        range.GetComponent<Collider>().enabled = false;
+        Color rangeColor = new Color(1f, 1f, 0f, 0.08f);
+        range.GetComponent<Renderer>().material = MakeMat(rangeColor);
     }
 
-    void CreatePreviewMine()
+    void CreateBoxPreview(Vector3 size, Color color)
     {
         previewObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
         previewObject.name = "BuildPreview";
-        previewObject.transform.localScale = new Vector3(2f, 1f, 2f);
+        previewObject.transform.localScale = size;
         previewObject.GetComponent<Collider>().enabled = false;
-        Color c = new Color(0.9f, 0.75f, 0.2f, 0.5f);
-        previewObject.GetComponent<Renderer>().material = MakeMat(c);
-    }
-
-    void CreatePreviewWall()
-    {
-        previewObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        previewObject.name = "BuildPreview";
-        previewObject.transform.localScale = new Vector3(3.5f, 2f, 0.7f);
-        previewObject.GetComponent<Collider>().enabled = false;
-        Color c = new Color(0.5f, 0.45f, 0.38f, 0.5f);
-        previewObject.GetComponent<Renderer>().material = MakeMat(c);
+        previewObject.GetComponent<Renderer>().material = MakeMat(color);
     }
 
     public void CancelBuild()
