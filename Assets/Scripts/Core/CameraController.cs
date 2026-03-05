@@ -3,22 +3,24 @@ using UnityEngine.InputSystem;
 
 public class CameraController : MonoBehaviour
 {
-    [SerializeField] private float zoomSpeed = 8f;
-    [SerializeField] private float minFov = 30f;
-    [SerializeField] private float maxFov = 120f;
+    [SerializeField] private float zoomSpeed = 5f;
+    [SerializeField] private float minDist = 60f;
+    [SerializeField] private float maxDist = 220f;
+    [SerializeField] private float cameraAngle = 50f;
 
     private Camera cam;
+    private float zoomLevel = 0.55f;
+    private Vector3 lookCenter = new Vector3(0f, 0f, 12f);
 
     void Start()
     {
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        transform.position = new Vector3(0f, 90f, -60f);
-        transform.eulerAngles = new Vector3(50f, 0f, 0f);
-
         if (cam != null)
-            cam.fieldOfView = 90f;
+            cam.fieldOfView = 80f;
+
+        UpdateCameraPosition();
     }
 
     void Update()
@@ -28,8 +30,18 @@ public class CameraController : MonoBehaviour
         float scroll = Mouse.current.scroll.ReadValue().y;
         if (scroll != 0f)
         {
-            cam.fieldOfView -= scroll * zoomSpeed * 0.01f;
-            cam.fieldOfView = Mathf.Clamp(cam.fieldOfView, minFov, maxFov);
+            zoomLevel -= scroll * zoomSpeed * 0.001f;
+            zoomLevel = Mathf.Clamp01(zoomLevel);
+            UpdateCameraPosition();
         }
+    }
+
+    void UpdateCameraPosition()
+    {
+        float dist = Mathf.Lerp(minDist, maxDist, zoomLevel);
+        float angleRad = cameraAngle * Mathf.Deg2Rad;
+        Vector3 offset = new Vector3(0f, Mathf.Sin(angleRad), -Mathf.Cos(angleRad)) * dist;
+        transform.position = lookCenter + offset;
+        transform.eulerAngles = new Vector3(cameraAngle, 0f, 0f);
     }
 }
