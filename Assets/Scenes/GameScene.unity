@@ -224,9 +224,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9e84890032f04ce4399929cd6552b594, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraController
-  zoomSpeed: 5
-  minDist: 40
-  maxDist: 150
+  zoomSpeed: 10
+  minDist: 25
+  maxDist: 105
   cameraAngle: 70
 --- !u!1 &1437340335
 GameObject:
