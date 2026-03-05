@@ -660,6 +660,114 @@ public static class VoxelModels
         return d;
     }
 
+    // ============ GROUND TERRAIN (160x3x140, voxelSize 1.0) ============
+    public static VoxelData CreateGroundTerrain()
+    {
+        int w = 160, h = 3, d = 140;
+        var data = new VoxelData(w, h, d);
+        Color dirtBase = new Color(0.2f, 0.15f, 0.1f);
+
+        for (int x = 0; x < w; x++)
+        for (int z = 0; z < d; z++)
+        {
+            float wx = x - 80f;
+            float wz = z - 70f;
+
+            float n1 = Mathf.PerlinNoise(wx * 0.025f + 100f, wz * 0.025f + 100f);
+            float n2 = Mathf.PerlinNoise(wx * 0.07f + 50f, wz * 0.07f + 50f) * 0.3f;
+            float noise = n1 + n2;
+
+            float towerDist = Mathf.Sqrt(wx * wx + (wz - 18f) * (wz - 18f));
+
+            // Height bumps only far from gameplay area
+            int surfaceH = 1;
+            if (noise > 1.05f && towerDist > 35f && (Mathf.Abs(wx) > 30f || wz > 30f))
+                surfaceH = 2;
+
+            Color surface = GroundBiomeColor(wx, wz, noise, towerDist);
+
+            // Puddle clusters
+            float puddleN = Mathf.PerlinNoise(wx * 0.15f + 400f, wz * 0.15f + 400f);
+            if (puddleN > 0.75f && wz > -30f && wz < 10f && towerDist > 8f)
+            {
+                surface = new Color(0.06f, 0.1f, 0.18f);
+                surfaceH = 1;
+            }
+
+            // Flower clusters
+            float flowerN = Mathf.PerlinNoise(wx * 0.2f + 500f, wz * 0.2f + 500f);
+            if (flowerN > 0.82f && wz > -20f && wz < 20f && towerDist > 10f)
+            {
+                Color[] flowers = {
+                    new Color(0.8f, 0.2f, 0.2f),
+                    new Color(0.9f, 0.8f, 0.2f),
+                    new Color(0.6f, 0.3f, 0.7f),
+                    new Color(0.9f, 0.5f, 0.2f)
+                };
+                int fi = (Mathf.Abs((int)wx) + Mathf.Abs((int)wz)) % flowers.Length;
+                surface = flowers[fi];
+            }
+
+            for (int y = 0; y < surfaceH; y++)
+                data.Set(x, y, z, y == surfaceH - 1 ? surface : dirtBase);
+        }
+
+        ApplyVariation(data, 0.012f);
+        return data;
+    }
+
+    static Color GroundBiomeColor(float wx, float wz, float noise, float towerDist)
+    {
+        // Dirt path from south to tower
+        float pathX = Mathf.Sin(wz * 0.08f) * 3f;
+        if (Mathf.Abs(wx - pathX) < 1.5f && wz > -55f && wz < 15f)
+            return new Color(0.30f + noise * 0.04f, 0.24f + noise * 0.04f, 0.14f);
+
+        // Gravel near tower
+        if (towerDist < 6f)
+        {
+            float g = 0.32f + noise * 0.1f;
+            return new Color(g, g * 0.95f, g * 0.85f);
+        }
+
+        // Forest floor (north)
+        if (wz > 22f)
+        {
+            float g = 0.10f + noise * 0.08f;
+            return new Color(g * 0.6f, g, g * 0.3f);
+        }
+
+        // Lush green near tower
+        if (wz > 5f)
+        {
+            float g = 0.25f + noise * 0.1f;
+            return new Color(g * 0.55f, g, g * 0.25f);
+        }
+
+        // Battlefield zone
+        if (wz > -15f)
+        {
+            float bf = Mathf.PerlinNoise(wx * 0.1f + 200f, wz * 0.1f + 200f);
+            if (bf > 0.55f)
+                return new Color(0.19f + noise * 0.03f, 0.19f + noise * 0.03f, 0.11f);
+            float g = 0.22f + noise * 0.08f;
+            return new Color(g * 0.6f, g, g * 0.3f);
+        }
+
+        // Mid-field (dry grass and dirt mix)
+        if (wz > -45f)
+        {
+            float t = Mathf.PerlinNoise(wx * 0.08f + 300f, wz * 0.08f + 300f);
+            if (t > 0.5f)
+                return new Color(0.32f + noise * 0.06f, 0.34f + noise * 0.06f, 0.12f);
+            float b = 0.18f + noise * 0.1f;
+            return new Color(b + 0.04f, b + 0.02f, b * 0.4f);
+        }
+
+        // Far south spawn area (dead terrain)
+        return new Color(0.25f + noise * 0.05f, 0.22f + noise * 0.04f, 0.12f);
+    }
+
     // ============ HELPER: Spawn a VoxelObject from data ============
     public static VoxelObject Spawn(VoxelData data, float voxelSize, Vector3 position, string name)
     {

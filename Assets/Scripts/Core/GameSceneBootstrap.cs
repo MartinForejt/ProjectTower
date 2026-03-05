@@ -40,175 +40,19 @@ public class GameSceneBootstrap : MonoBehaviour
             cam.gameObject.AddComponent<PS1PostProcess>();
     }
 
-    Material GroundMat(Color color, float smoothness = 0.12f)
-    {
-        Material m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        m.color = color;
-        m.SetFloat("_Smoothness", smoothness);
-        return m;
-    }
-
-    GameObject GroundPlane(string name, Vector3 pos, Vector3 scale, Color color, float smoothness = 0.12f)
-    {
-        GameObject p = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        p.name = name;
-        p.transform.position = pos;
-        p.transform.localScale = scale;
-        p.GetComponent<Renderer>().material = GroundMat(color, smoothness);
-        Destroy(p.GetComponent<Collider>());
-        return p;
-    }
-
     void CreateGround()
     {
-        // Main ground plane (collider kept for raycasts)
+        // Invisible ground plane for raycasts only
         GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
         ground.name = "Ground";
         ground.transform.position = Vector3.zero;
         ground.transform.localScale = new Vector3(20f, 1f, 20f);
         ground.layer = LayerMask.NameToLayer("Default");
-        ground.GetComponent<Renderer>().material = GroundMat(new Color(0.18f, 0.28f, 0.1f));
+        ground.GetComponent<Renderer>().enabled = false;
 
-        // === GRASS ZONES (varied green patches) ===
-        // Lush grass areas (lighter green)
-        for (int i = 0; i < 12; i++)
-        {
-            float x = Random.Range(-70f, 70f);
-            float z = Random.Range(-40f, 40f);
-            float sx = Random.Range(2f, 6f);
-            float sz = Random.Range(2f, 6f);
-            float g = Random.Range(0.25f, 0.38f);
-            Color c = new Color(g * 0.6f, g, g * 0.3f);
-            GameObject p = GroundPlane("GrassLush", new Vector3(x, 0.02f, z),
-                new Vector3(sx, 1f, sz), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
-
-        // Dark grass areas (shadows/denser)
-        for (int i = 0; i < 10; i++)
-        {
-            float x = Random.Range(-60f, 60f);
-            float z = Random.Range(-30f, 35f);
-            float sx = Random.Range(1.5f, 4f);
-            float sz = Random.Range(1.5f, 4f);
-            float g = Random.Range(0.12f, 0.2f);
-            Color c = new Color(g * 0.7f, g, g * 0.3f);
-            GameObject p = GroundPlane("GrassDark", new Vector3(x, 0.03f, z),
-                new Vector3(sx, 1f, sz), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
-
-        // Yellow/dry grass patches
-        for (int i = 0; i < 8; i++)
-        {
-            float x = Random.Range(-50f, 50f);
-            float z = Random.Range(-50f, 10f);
-            float sx = Random.Range(1f, 3f);
-            float sz = Random.Range(1f, 3f);
-            Color c = new Color(
-                Random.Range(0.3f, 0.4f),
-                Random.Range(0.32f, 0.4f),
-                Random.Range(0.1f, 0.15f));
-            GameObject p = GroundPlane("GrassDry", new Vector3(x, 0.04f, z),
-                new Vector3(sx, 1f, sz), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
-
-        // === SCORCHED / BATTLEFIELD EARTH ===
-        GroundPlane("ScorchedEarth", new Vector3(0f, 0.05f, 2f),
-            new Vector3(8f, 1f, 5f), new Color(0.18f, 0.2f, 0.1f));
-        GroundPlane("ScorchedEarth2", new Vector3(-8f, 0.05f, -5f),
-            new Vector3(4f, 1f, 3f), new Color(0.2f, 0.2f, 0.12f));
-        GroundPlane("ScorchedEarth3", new Vector3(10f, 0.05f, 0f),
-            new Vector3(3f, 1f, 4f), new Color(0.19f, 0.19f, 0.11f));
-
-        // === DIRT / MUD PATCHES ===
-        for (int i = 0; i < 25; i++)
-        {
-            float x = Random.Range(-60f, 60f);
-            float z = Random.Range(-65f, 15f);
-            float sx = Random.Range(0.4f, 1.8f);
-            float sz = Random.Range(0.4f, 1.8f);
-            float b = Random.Range(0.15f, 0.3f);
-            Color c = new Color(b + 0.04f, b + 0.02f, b * 0.4f);
-            GameObject p = GroundPlane("DirtPatch", new Vector3(x, 0.06f, z),
-                new Vector3(sx, 1f, sz), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
-
-        // === DIRT PATH (from south toward tower) ===
-        for (int i = 0; i < 12; i++)
-        {
-            float z = -55f + i * 6f;
-            float x = Mathf.Sin(i * 0.4f) * 3f;
-            Color pathC = new Color(
-                Random.Range(0.28f, 0.34f),
-                Random.Range(0.22f, 0.28f),
-                Random.Range(0.12f, 0.16f));
-            GameObject p = GroundPlane("Path", new Vector3(x, 0.055f, z),
-                new Vector3(0.5f, 1f, 0.8f), pathC);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(-15, 15), 0);
-        }
-
-        // === GRAVEL near tower ===
-        for (int i = 0; i < 6; i++)
-        {
-            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-            float dist = Random.Range(5f, 12f);
-            float x = TowerPos.x + Mathf.Sin(angle) * dist;
-            float z = TowerPos.z + Mathf.Cos(angle) * dist;
-            float s = Random.Range(0.8f, 2f);
-            float gr = Random.Range(0.32f, 0.42f);
-            Color c = new Color(gr, gr * 0.95f, gr * 0.85f);
-            GameObject p = GroundPlane("Gravel", new Vector3(x, 0.07f, z),
-                new Vector3(s, 1f, s), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
-
-        // === PUDDLES (dark reflective) ===
-        for (int i = 0; i < 5; i++)
-        {
-            float x = Random.Range(-30f, 30f);
-            float z = Random.Range(-40f, 10f);
-            float s = Random.Range(0.3f, 0.8f);
-            GroundPlane("Puddle", new Vector3(x, 0.08f, z),
-                new Vector3(s, 1f, s * Random.Range(0.6f, 1.2f)),
-                new Color(0.06f, 0.1f, 0.18f), 0.7f);
-        }
-
-        // === FLOWER PATCHES (tiny colored dots) ===
-        Color[] flowerColors = {
-            new Color(0.8f, 0.2f, 0.2f),
-            new Color(0.9f, 0.8f, 0.2f),
-            new Color(0.6f, 0.3f, 0.7f),
-            new Color(0.9f, 0.5f, 0.2f),
-            new Color(0.95f, 0.95f, 0.8f)
-        };
-        for (int i = 0; i < 15; i++)
-        {
-            float x = Random.Range(-40f, 40f);
-            float z = Random.Range(-20f, 20f);
-            // Skip near tower and near battlefield center
-            if (Mathf.Abs(x) < 8f && z > -5f && z < 16f) continue;
-            Color fc = flowerColors[Random.Range(0, flowerColors.Length)];
-            GroundPlane("Flowers", new Vector3(x, 0.09f, z),
-                new Vector3(Random.Range(0.1f, 0.3f), 1f, Random.Range(0.1f, 0.3f)), fc);
-        }
-
-        // === DEAD GRASS near spawn area ===
-        for (int i = 0; i < 6; i++)
-        {
-            float x = Random.Range(-25f, 25f);
-            float z = Random.Range(-60f, -40f);
-            float s = Random.Range(1f, 3f);
-            Color c = new Color(
-                Random.Range(0.28f, 0.35f),
-                Random.Range(0.25f, 0.3f),
-                Random.Range(0.1f, 0.14f));
-            GameObject p = GroundPlane("DeadGrass", new Vector3(x, 0.04f, z),
-                new Vector3(s, 1f, s), c);
-            p.transform.eulerAngles = new Vector3(0, Random.Range(0, 360), 0);
-        }
+        // 3D voxel terrain (160x3x140 at vs=1.0, covers -80..+80 X, -70..+70 Z)
+        VoxelData terrain = VoxelModels.CreateGroundTerrain();
+        VoxelModels.Spawn(terrain, 1f, new Vector3(-80f, -1f, -70f), "VoxelTerrain");
     }
 
     void CreateForest()
@@ -222,23 +66,13 @@ public class GameSceneBootstrap : MonoBehaviour
             VoxelModels.Spawn(VoxelModels.CreateTree(), 0.18f, new Vector3(x, 0f, z), "Tree");
         }
 
-        for (int i = 0; i < 12; i++)
+        // 5x bushes spread across the map
+        for (int i = 0; i < 60; i++)
         {
-            float x = Random.Range(-30f, 30f);
-            float z = forestZ + Random.Range(-1f, 2f);
+            float x = Random.Range(-50f, 50f);
+            float z = Random.Range(-30f, forestZ + 5f);
             VoxelModels.Spawn(VoxelModels.CreateBush(), 0.1f, new Vector3(x, 0f, z), "Bush");
         }
-
-        // Forest floor
-        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        floor.name = "ForestFloor";
-        floor.transform.position = new Vector3(0f, 0.1f, forestZ + 15f);
-        floor.transform.localScale = new Vector3(14f, 1f, 5f);
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.color = new Color(0.1f, 0.16f, 0.06f);
-        mat.SetFloat("_Smoothness", 0.12f);
-        floor.GetComponent<Renderer>().material = mat;
-        Destroy(floor.GetComponent<Collider>());
     }
 
     void CreateTower()
@@ -319,10 +153,11 @@ public class GameSceneBootstrap : MonoBehaviour
 
     void CreateBattlefieldDecor()
     {
-        for (int i = 0; i < 20; i++)
+        // 5x rocks across the battlefield
+        for (int i = 0; i < 100; i++)
         {
-            float x = Random.Range(-40f, 40f);
-            float z = Random.Range(-50f, 14f);
+            float x = Random.Range(-60f, 60f);
+            float z = Random.Range(-60f, 20f);
             VoxelModels.Spawn(VoxelModels.CreateRock(), 0.1f, new Vector3(x, 0f, z), "Rock");
         }
     }
