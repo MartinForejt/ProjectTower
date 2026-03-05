@@ -280,9 +280,20 @@ public class GameHUD : MonoBehaviour
         GUI.Label(new Rect(panelX + 10, btnY, panelW - 20, 22), "STRUCTURES", sectionStyle);
         btnY += 24;
 
-        if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
-            $"Mine ({Mine.GetBuildCost()}g)", smallButtonStyle))
-            BuildingSystem.Instance?.StartPlaceMine();
+        // Mine upgrade button
+        if (Mine.Instance != null)
+        {
+            int mineLvl = Mine.Instance.Level;
+            int mineCost = Mine.Instance.GetUpgradeCost();
+            string mineInfo = $"{Mine.Instance.CoinPerTick}g/{Mine.Instance.TickInterval:F1}s";
+            if (GUI.Button(new Rect(panelX + 10, btnY, panelW - 20, btnH),
+                $"Mine Lv{mineLvl} ({mineCost}g)", smallButtonStyle))
+                Mine.Instance.Upgrade();
+
+            GUIStyle mineDetail = new GUIStyle(labelStyle) { fontSize = 10, alignment = TextAnchor.MiddleRight };
+            mineDetail.normal.textColor = new Color(1f, 0.85f, 0.2f);
+            GUI.Label(new Rect(panelX + 10, btnY + btnH - 2, panelW - 30, 14), mineInfo, mineDetail);
+        }
 
         // Wall auto-place button
         if (BuildingSystem.Instance != null)
@@ -346,18 +357,6 @@ public class GameHUD : MonoBehaviour
                 BuildingSystem.Instance.UpgradeAllWalls();
         }
 
-        // Build mode indicator (mines only)
-        if (BuildingSystem.Instance != null && BuildingSystem.Instance.CurrentMode != BuildMode.None)
-        {
-            GUIStyle modeStyle = new GUIStyle(labelStyle)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 14
-            };
-            modeStyle.normal.textColor = Color.green;
-            GUI.Label(new Rect(panelX, panelY + panelH + 5, panelW, 25),
-                "Click to place | RMB cancel", modeStyle);
-        }
     }
 
     Texture2D MakeTexture(Color color)

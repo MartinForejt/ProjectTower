@@ -264,7 +264,7 @@ public class Enemy : MonoBehaviour
         if (voxelObject != null)
             voxelObject.Explode(IsBoss ? 15f : 8f);
 
-        SpawnBloodPool();
+        SpawnBloodAndGore();
 
         if (SoundManager.Instance != null)
             SoundManager.Instance.PlayEnemyDeath(transform.position);
@@ -272,17 +272,58 @@ public class Enemy : MonoBehaviour
         Destroy(gameObject, 0.1f);
     }
 
-    void SpawnBloodPool()
+    void SpawnBloodAndGore()
     {
-        GameObject pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        pool.transform.position = new Vector3(transform.position.x, 0.02f, transform.position.z);
-        pool.transform.localScale = new Vector3(
-            Random.Range(0.5f, 1.2f), 0.005f, Random.Range(0.5f, 1.2f));
-        Destroy(pool.GetComponent<Collider>());
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.color = new Color(0.35f, 0.02f, 0.02f);
-        pool.GetComponent<Renderer>().material = mat;
-        Destroy(pool, 8f);
+        int chunkCount = IsBoss ? 18 : 8;
+        float force = IsBoss ? 10f : 6f;
+        Material bloodMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        bloodMat.color = new Color(0.45f, 0.02f, 0.02f);
+        bloodMat.SetFloat("_Smoothness", 0.7f);
+        Material goreMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        goreMat.color = new Color(0.3f, 0.05f, 0.05f);
+        goreMat.SetFloat("_Smoothness", 0.3f);
+
+        // Blood splatter chunks (physics-driven, bounce and settle)
+        for (int i = 0; i < chunkCount; i++)
+        {
+            bool isGore = i < chunkCount / 3;
+            PrimitiveType shape = isGore ? PrimitiveType.Cube : PrimitiveType.Sphere;
+            GameObject bit = GameObject.CreatePrimitive(shape);
+            bit.transform.position = transform.position + Random.insideUnitSphere * 0.3f;
+            float s = isGore ? Random.Range(0.04f, 0.1f) : Random.Range(0.03f, 0.08f);
+            bit.transform.localScale = Vector3.one * s;
+            bit.transform.rotation = Random.rotation;
+
+            // Keep collider so blood bounces on terrain
+            bit.GetComponent<Renderer>().material = isGore ? goreMat : bloodMat;
+
+            Rigidbody rb = bit.AddComponent<Rigidbody>();
+            rb.mass = Random.Range(0.01f, 0.05f);
+            Vector3 dir = Random.insideUnitSphere;
+            dir.y = Mathf.Abs(dir.y) + 0.3f;
+            rb.linearVelocity = dir * Random.Range(force * 0.4f, force);
+            rb.angularVelocity = Random.insideUnitSphere * 15f;
+
+            Destroy(bit, Random.Range(5f, 10f));
+        }
+
+        // Blood droplets (smaller, more spread)
+        int droplets = IsBoss ? 12 : 6;
+        for (int i = 0; i < droplets; i++)
+        {
+            GameObject drop = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            drop.transform.position = transform.position + Vector3.up * 0.3f;
+            drop.transform.localScale = Vector3.one * Random.Range(0.015f, 0.035f);
+            drop.GetComponent<Renderer>().material = bloodMat;
+
+            Rigidbody rb = drop.AddComponent<Rigidbody>();
+            rb.mass = 0.005f;
+            Vector3 dir = Random.insideUnitSphere;
+            dir.y = Mathf.Abs(dir.y);
+            rb.linearVelocity = dir * Random.Range(2f, 8f);
+
+            Destroy(drop, Random.Range(4f, 8f));
+        }
     }
 }
 

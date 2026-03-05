@@ -437,13 +437,45 @@ public class Projectile : MonoBehaviour
         if (TerrainSystem.Instance != null)
             TerrainSystem.Instance.DamageAt(transform.position, isRocket ? 1.5f : 1.0f);
 
-        // Ground scorch mark
-        GameObject scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        scorch.transform.position = new Vector3(transform.position.x, 0.02f, transform.position.z);
-        scorch.transform.localScale = new Vector3(size * 1.5f, 0.003f, size * 1.5f);
-        Destroy(scorch.GetComponent<Collider>());
-        scorch.GetComponent<Renderer>().material = MakeLitMat(new Color(0.08f, 0.06f, 0.04f));
-        Destroy(scorch, 5f);
+        // Lingering fire (stays on ground)
+        int fireCount = isRocket ? 5 : 3;
+        for (int i = 0; i < fireCount; i++)
+        {
+            Vector3 firePos = transform.position + Random.insideUnitSphere * size * 0.6f;
+            firePos.y = 0.1f;
+            GameObject gf = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            gf.transform.position = firePos;
+            float gfs = Random.Range(0.12f, 0.25f);
+            gf.transform.localScale = Vector3.one * gfs;
+            Destroy(gf.GetComponent<Collider>());
+            Color gfc = Color.Lerp(new Color(1f, 0.3f, 0f), new Color(1f, 0.7f, 0.1f), Random.value);
+            gf.GetComponent<Renderer>().material = MakeGlowMat(gfc, 4f);
+            DynamicLight.Create(firePos, gfc, 1.5f, 3f, Random.Range(1.5f, 3f));
+            Destroy(gf, Random.Range(1.5f, 3f));
+        }
+
+        // Lingering smoke columns (rise slowly from blast site)
+        int smokeCount = isRocket ? 6 : 4;
+        for (int i = 0; i < smokeCount; i++)
+        {
+            Vector3 smokePos = transform.position + Random.insideUnitSphere * size * 0.5f;
+            smokePos.y = Random.Range(0.2f, 0.5f);
+            GameObject ls = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ls.transform.position = smokePos;
+            float lss = Random.Range(0.25f, 0.5f);
+            ls.transform.localScale = Vector3.one * lss;
+            Destroy(ls.GetComponent<Collider>());
+            float lg = Random.Range(0.2f, 0.4f);
+            ls.GetComponent<Renderer>().material = MakeLitMat(new Color(lg, lg, lg, 0.8f));
+
+            Rigidbody lsrb = ls.AddComponent<Rigidbody>();
+            lsrb.mass = 0.005f;
+            lsrb.useGravity = false;
+            lsrb.linearDamping = 1.5f;
+            lsrb.linearVelocity = Vector3.up * Random.Range(0.5f, 1.5f) + Random.insideUnitSphere * 0.3f;
+
+            Destroy(ls, Random.Range(2f, 4f));
+        }
 
         Destroy(explosion, 0.25f);
         Destroy(innerCore, 0.12f);

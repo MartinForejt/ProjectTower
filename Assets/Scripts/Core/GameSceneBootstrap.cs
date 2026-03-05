@@ -154,7 +154,7 @@ public class GameSceneBootstrap : MonoBehaviour
 
     void CreateStartingMine()
     {
-        Vector3 minePos = TowerPos + new Vector3(6f, 0f, -2f);
+        Vector3 minePos = TowerPos + new Vector3(10f, 0f, -8f);
         VoxelData data = VoxelModels.CreateMine();
         float vs = 0.1f;
         Vector3 offset = new Vector3(-data.Width * vs * 0.5f, 0, -data.Depth * vs * 0.5f);

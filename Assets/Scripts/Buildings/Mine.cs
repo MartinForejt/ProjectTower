@@ -2,13 +2,26 @@ using UnityEngine;
 
 public class Mine : MonoBehaviour
 {
+    public static Mine Instance { get; private set; }
+
     [SerializeField] private int coinPerTick = 5;
     [SerializeField] private float tickInterval = 3f;
-    [SerializeField] private int upgradeCost = 75;
 
     public int Level { get; private set; } = 1;
+    public int CoinPerTick => coinPerTick;
+    public float TickInterval => tickInterval;
 
     private float tickTimer;
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     void Update()
     {
@@ -31,11 +44,9 @@ public class Mine : MonoBehaviour
         {
             Level++;
             coinPerTick += 3;
-            tickInterval = Mathf.Max(1f, tickInterval - 0.3f);
+            tickInterval = Mathf.Max(1f, tickInterval - 0.2f);
         }
     }
 
-    public int GetUpgradeCost() => upgradeCost + Level * 40;
-
-    public static int GetBuildCost() => 100;
+    public int GetUpgradeCost() => 60 + Level * 35;
 }
