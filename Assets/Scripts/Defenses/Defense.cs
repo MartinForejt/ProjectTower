@@ -127,6 +127,12 @@ public class Defense : MonoBehaviour
             Mathf.Sin(rad) * orbitRadius,
             orbitHeight,
             Mathf.Cos(rad) * orbitRadius);
+
+        // Face outward from tower
+        Vector3 outward = transform.position - TowerCenter;
+        outward.y = 0;
+        if (outward.sqrMagnitude > 0.001f)
+            transform.rotation = Quaternion.LookRotation(outward);
     }
 
     protected virtual void FindTarget()
@@ -160,16 +166,25 @@ public class Defense : MonoBehaviour
 
     protected virtual void LookAtTarget()
     {
-        Vector3 dir = currentTarget.position - transform.position;
-        dir.y = 0;
-        if (dir == Vector3.zero) return;
+        if (headTransform == null) return;
 
-        Quaternion lookRot = Quaternion.LookRotation(dir);
+        Vector3 dir = currentTarget.position - headTransform.position;
+        if (dir.sqrMagnitude < 0.001f) return;
 
-        if (headTransform != null)
-            headTransform.rotation = Quaternion.Slerp(headTransform.rotation, lookRot, Time.deltaTime * 8f);
-        else
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 8f);
+        // Calculate desired aim as local rotation relative to parent (which faces outward)
+        Quaternion worldLook = Quaternion.LookRotation(dir);
+        Quaternion localLook = Quaternion.Inverse(transform.rotation) * worldLook;
+
+        // Clamp to small adjustments — the orbit already positions us roughly correct
+        Vector3 euler = localLook.eulerAngles;
+        if (euler.x > 180f) euler.x -= 360f;
+        if (euler.y > 180f) euler.y -= 360f;
+        euler.x = Mathf.Clamp(euler.x, -25f, 25f);
+        euler.y = Mathf.Clamp(euler.y, -35f, 35f);
+        euler.z = 0f;
+
+        Quaternion clamped = Quaternion.Euler(euler);
+        headTransform.localRotation = Quaternion.Slerp(headTransform.localRotation, clamped, Time.deltaTime * 8f);
     }
 
     protected virtual void Fire()
