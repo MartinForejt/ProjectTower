@@ -56,6 +56,7 @@ public class GameHUD : MonoBehaviour
 
         sw = Screen.width;
         sh = Screen.height;
+        GetVisibleArea(ref sw, ref sh);
         s = Mathf.Min(sw / 1920f, sh / 1080f);
         if (s < 0.01f) s = 1f;
 
@@ -399,6 +400,37 @@ public class GameHUD : MonoBehaviour
                 }
             }
         }
+    }
+
+    static void GetVisibleArea(ref float w, ref float h)
+    {
+#if UNITY_EDITOR
+        try
+        {
+            var gameViewType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.GameView");
+            if (gameViewType != null)
+            {
+                var views = Resources.FindObjectsOfTypeAll(gameViewType);
+                if (views.Length > 0)
+                {
+                    var gv = views[0] as UnityEditor.EditorWindow;
+                    if (gv != null)
+                    {
+                        float dpi = UnityEditor.EditorGUIUtility.pixelsPerPoint;
+                        Rect pos = gv.position;
+                        float panelW = pos.width * dpi;
+                        float panelH = (pos.height - 20f) * dpi;
+                        if (panelW > 10 && panelH > 10)
+                        {
+                            w = Mathf.Min(w, panelW);
+                            h = Mathf.Min(h, panelH);
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+#endif
     }
 
     Texture2D MakeTex(Color c)
