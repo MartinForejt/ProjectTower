@@ -2,28 +2,18 @@ using UnityEngine;
 
 public class GameHUD : MonoBehaviour
 {
-    private GUIStyle headerStyle, labelStyle, buttonStyle, smallBtnStyle, sectionStyle;
     private Texture2D darkTex, redTex, blueTex, greenTex, accentTex, sliderBgTex, sliderFillTex;
-    private bool stylesInit;
+    private bool texInit;
     private bool showSettings;
-    private float scale;
+    private float s; // scale factor
+    private float sw, sh; // actual screen pixel dimensions
 
-    void InitStyles()
+    float S(float v) => v * s;
+    int FS(float baseSize) => Mathf.Max(8, Mathf.RoundToInt(baseSize * s));
+
+    void InitTextures()
     {
-        if (stylesInit) return;
-
-        headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        headerStyle.normal.textColor = Color.white;
-
-        labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
-        labelStyle.normal.textColor = Color.white;
-
-        buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fontStyle = FontStyle.Bold, fixedHeight = 40 };
-
-        smallBtnStyle = new GUIStyle(GUI.skin.button) { fontSize = 13, fixedHeight = 30 };
-
-        sectionStyle = new GUIStyle(headerStyle) { fontSize = 14 };
-
+        if (texInit) return;
         darkTex = MakeTex(new Color(0.12f, 0.12f, 0.15f, 0.85f));
         redTex = MakeTex(new Color(0.8f, 0.15f, 0.15f));
         blueTex = MakeTex(new Color(0.2f, 0.4f, 0.9f));
@@ -31,8 +21,30 @@ public class GameHUD : MonoBehaviour
         accentTex = MakeTex(new Color(0.85f, 0.7f, 0.2f));
         sliderBgTex = MakeTex(new Color(0.2f, 0.2f, 0.25f));
         sliderFillTex = MakeTex(new Color(0.85f, 0.7f, 0.2f));
+        texInit = true;
+    }
 
-        stylesInit = true;
+    GUIStyle MakeStyle(int fontSize, FontStyle fontStyle, TextAnchor align, Color color)
+    {
+        GUIStyle st = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = FS(fontSize),
+            fontStyle = fontStyle,
+            alignment = align
+        };
+        st.normal.textColor = color;
+        return st;
+    }
+
+    GUIStyle MakeBtn(int fontSize, FontStyle fontStyle = FontStyle.Normal)
+    {
+        GUIStyle st = new GUIStyle(GUI.skin.button)
+        {
+            fontSize = FS(fontSize),
+            fontStyle = fontStyle,
+            fixedHeight = 0
+        };
+        return st;
     }
 
     void OnGUI()
@@ -40,160 +52,144 @@ public class GameHUD : MonoBehaviour
         GUI.matrix = Matrix4x4.identity;
         if (GameManager.Instance == null) return;
         if (GameManager.Instance.CurrentState == GameState.MainMenu) return;
-        InitStyles();
+        InitTextures();
 
-        float screenW = Screen.width;
-        float screenH = Screen.height;
-        Camera cam = Camera.main;
-        if (cam != null)
-        {
-            screenW = cam.pixelWidth;
-            screenH = cam.pixelHeight;
-        }
-        scale = Mathf.Min(screenW / 1920f, screenH / 1080f);
-        if (scale < 0.01f) scale = 1f;
-        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-        float sw = screenW / scale;
-        float sh = screenH / scale;
+        sw = Screen.width;
+        sh = Screen.height;
+        s = Mathf.Min(sw / 1920f, sh / 1080f);
+        if (s < 0.01f) s = 1f;
 
         GameState state = GameManager.Instance.CurrentState;
 
         if (state == GameState.Setup)
-            DrawSetupHUD(sw, sh);
+            DrawSetupHUD();
         else if (state == GameState.Playing)
-            DrawPlayingHUD(sw, sh);
+            DrawPlayingHUD();
         else if (state == GameState.Paused)
-            DrawPausedHUD(sw, sh);
+            DrawPausedHUD();
         else if (state == GameState.GameOver)
-            DrawGameOverHUD(sw, sh);
+            DrawGameOverHUD();
 
         if (state == GameState.Setup || state == GameState.Playing || state == GameState.Paused)
         {
-            DrawTopBar(sw);
-            DrawBuildPanel(sw);
+            DrawTopBar();
+            DrawBuildPanel();
         }
     }
 
-    void DrawTopBar(float sw)
+    void DrawTopBar()
     {
-        GUI.DrawTexture(new Rect(0, 0, sw, 50), darkTex);
+        GUI.DrawTexture(new Rect(0, 0, sw, S(50)), darkTex);
 
         int coins = EconomyManager.Instance != null ? EconomyManager.Instance.Coins : 0;
-        GUIStyle coinStyle = new GUIStyle(headerStyle) { alignment = TextAnchor.MiddleLeft };
-        coinStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
-        GUI.Label(new Rect(220, 10, 200, 32), $"Gold: {coins}", coinStyle);
+        GUIStyle coinStyle = MakeStyle(20, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.2f));
+        GUI.Label(new Rect(S(220), S(10), S(200), S(32)), $"Gold: {coins}", coinStyle);
 
-        GUIStyle infoStyle = new GUIStyle(labelStyle) { fontSize = 12, alignment = TextAnchor.MiddleLeft };
-        infoStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+        GUIStyle infoStyle = MakeStyle(12, FontStyle.Normal, TextAnchor.MiddleLeft, new Color(0.7f, 0.7f, 0.7f));
         string topInfo = "";
         if (Mine.Instance != null)
             topInfo += $"+{Mine.Instance.CoinPerTick}g/{Mine.Instance.TickInterval:F1}s";
         int tCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
         if (topInfo.Length > 0) topInfo += "  ";
         topInfo += $"Turrets: {tCount}/{BuildingSystem.MAX_TOWER_DEFENSES}";
-        GUI.Label(new Rect(220, 34, 280, 18), topInfo, infoStyle);
+        GUI.Label(new Rect(S(220), S(34), S(280), S(18)), topInfo, infoStyle);
 
         if (WaveManager.Instance != null)
         {
-            GUI.Label(new Rect(sw / 2 - 100, 10, 200, 32), $"Wave: {WaveManager.Instance.CurrentWave}", headerStyle);
+            GUIStyle headerStyle = MakeStyle(20, FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
+            GUI.Label(new Rect(sw / 2 - S(100), S(10), S(200), S(32)), $"Wave: {WaveManager.Instance.CurrentWave}", headerStyle);
 
-            GUIStyle smallLbl = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter };
-            GUI.Label(new Rect(sw / 2 + 110, 10, 200, 32), $"Enemies: {WaveManager.Instance.EnemiesAlive}", smallLbl);
+            GUIStyle smallLbl = MakeStyle(14, FontStyle.Normal, TextAnchor.MiddleCenter, Color.white);
+            GUI.Label(new Rect(sw / 2 + S(110), S(10), S(200), S(32)), $"Enemies: {WaveManager.Instance.EnemiesAlive}", smallLbl);
 
             if (WaveManager.Instance.IsCountingDown)
             {
-                GUIStyle cdStyle = new GUIStyle(headerStyle) { fontSize = 16 };
-                cdStyle.normal.textColor = new Color(1f, 0.5f, 0.2f);
-                GUI.Label(new Rect(sw / 2 - 100, 38, 200, 22), $"Next wave: {WaveManager.Instance.CountdownTimer:F0}s", cdStyle);
+                GUIStyle cdStyle = MakeStyle(16, FontStyle.Bold, TextAnchor.MiddleCenter, new Color(1f, 0.5f, 0.2f));
+                GUI.Label(new Rect(sw / 2 - S(100), S(38), S(200), S(22)), $"Next wave: {WaveManager.Instance.CountdownTimer:F0}s", cdStyle);
             }
             else
             {
                 float next = WaveManager.Instance.GetTimeToNextWave();
                 if (next > 0)
                 {
-                    GUIStyle timerStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter };
-                    timerStyle.normal.textColor = Color.yellow;
-                    GUI.Label(new Rect(sw / 2 + 300, 10, 200, 32), $"Next: {next:F0}s", timerStyle);
+                    GUIStyle timerStyle = MakeStyle(14, FontStyle.Normal, TextAnchor.MiddleCenter, Color.yellow);
+                    GUI.Label(new Rect(sw / 2 + S(300), S(10), S(200), S(32)), $"Next: {next:F0}s", timerStyle);
                 }
             }
         }
 
         if (Tower.Instance != null)
         {
-            float barX = sw - 380;
+            float barX = sw - S(380);
             float healthPct = Tower.Instance.Health / Tower.Instance.MaxHealth;
             float shieldPct = Tower.Instance.MaxShield > 0 ? Tower.Instance.Shield / Tower.Instance.MaxShield : 0;
 
-            GUIStyle barLbl = new GUIStyle(labelStyle) { fontSize = 13 };
+            GUIStyle barLbl = MakeStyle(13, FontStyle.Normal, TextAnchor.MiddleLeft, Color.white);
 
-            GUI.Label(new Rect(barX, 8, 30, 18), "HP", barLbl);
-            GUI.DrawTexture(new Rect(barX + 28, 10, 132, 16), darkTex);
-            GUI.DrawTexture(new Rect(barX + 29, 11, 130 * healthPct, 14), redTex);
+            GUI.Label(new Rect(barX, S(8), S(30), S(18)), "HP", barLbl);
+            GUI.DrawTexture(new Rect(barX + S(28), S(10), S(132), S(16)), darkTex);
+            GUI.DrawTexture(new Rect(barX + S(29), S(11), S(130) * healthPct, S(14)), redTex);
 
-            GUI.Label(new Rect(barX + 170, 8, 55, 18), "Shield", barLbl);
-            GUI.DrawTexture(new Rect(barX + 225, 10, 112, 16), darkTex);
-            GUI.DrawTexture(new Rect(barX + 226, 11, 110 * shieldPct, 14), blueTex);
+            GUI.Label(new Rect(barX + S(170), S(8), S(55), S(18)), "Shield", barLbl);
+            GUI.DrawTexture(new Rect(barX + S(225), S(10), S(112), S(16)), darkTex);
+            GUI.DrawTexture(new Rect(barX + S(226), S(11), S(110) * shieldPct, S(14)), blueTex);
         }
 
-        // Wall HP bar (if wall exists)
         if (Wall.Instance != null && !Wall.Instance.IsDestroyed)
         {
-            float wallBarX = sw - 380;
+            float wallBarX = sw - S(380);
             float wallHpPct = Wall.Instance.Health / Wall.Instance.MaxHealth;
-            GUIStyle wBarLbl = new GUIStyle(labelStyle) { fontSize = 11 };
-            GUI.Label(new Rect(wallBarX, 30, 40, 16), "Wall", wBarLbl);
-            GUI.DrawTexture(new Rect(wallBarX + 38, 32, 102, 12), darkTex);
-            GUI.DrawTexture(new Rect(wallBarX + 39, 33, 100 * wallHpPct, 10), greenTex);
+            GUIStyle wBarLbl = MakeStyle(11, FontStyle.Normal, TextAnchor.MiddleLeft, Color.white);
+            GUI.Label(new Rect(wallBarX, S(30), S(40), S(16)), "Wall", wBarLbl);
+            GUI.DrawTexture(new Rect(wallBarX + S(38), S(32), S(102), S(12)), darkTex);
+            GUI.DrawTexture(new Rect(wallBarX + S(39), S(33), S(100) * wallHpPct, S(10)), greenTex);
 
             if (Wall.Instance.HasShield)
             {
                 float wShieldPct = Wall.Instance.MaxShield > 0 ? Wall.Instance.Shield / Wall.Instance.MaxShield : 0;
-                GUI.DrawTexture(new Rect(wallBarX + 150, 32, 72, 12), darkTex);
-                GUI.DrawTexture(new Rect(wallBarX + 151, 33, 70 * wShieldPct, 10), blueTex);
+                GUI.DrawTexture(new Rect(wallBarX + S(150), S(32), S(72), S(12)), darkTex);
+                GUI.DrawTexture(new Rect(wallBarX + S(151), S(33), S(70) * wShieldPct, S(10)), blueTex);
             }
         }
 
-        if (GUI.Button(new Rect(sw - 100, 10, 85, 32), "Pause", smallBtnStyle))
+        GUIStyle pauseBtn = MakeBtn(13);
+        if (GUI.Button(new Rect(sw - S(100), S(10), S(85), S(32)), "Pause", pauseBtn))
         {
             if (GameManager.Instance.CurrentState == GameState.Playing)
                 GameManager.Instance.PauseGame();
         }
     }
 
-    void DrawSetupHUD(float sw, float sh)
+    void DrawSetupHUD()
     {
-        GUIStyle startBtn = new GUIStyle(GUI.skin.button) { fontSize = 30, fontStyle = FontStyle.Bold };
+        GUIStyle startBtn = MakeBtn(30, FontStyle.Bold);
 
-        if (GUI.Button(new Rect(sw / 2 - 140, sh - 100, 280, 65), "START WAVES", startBtn))
+        if (GUI.Button(new Rect(sw / 2 - S(140), sh - S(100), S(280), S(65)), "START WAVES", startBtn))
         {
             GameManager.Instance.StartWaves();
             if (WaveManager.Instance != null)
                 WaveManager.Instance.BeginWaves();
         }
 
-        GUIStyle tip = new GUIStyle(labelStyle) { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-        tip.normal.textColor = Color.yellow;
-        GUI.Label(new Rect(sw / 2 - 300, sh - 145, 600, 30), "Buy tower guns and walls before starting!", tip);
+        GUIStyle tip = MakeStyle(17, FontStyle.Normal, TextAnchor.MiddleCenter, Color.yellow);
+        GUI.Label(new Rect(sw / 2 - S(300), sh - S(145), S(600), S(30)), "Buy tower guns and walls before starting!", tip);
     }
 
-    void DrawPlayingHUD(float sw, float sh)
+    void DrawPlayingHUD()
     {
         if (WaveManager.Instance != null && WaveManager.Instance.IsCountingDown)
         {
             float t = WaveManager.Instance.CountdownTimer;
-            GUIStyle bigNum = new GUIStyle(GUI.skin.label) { fontSize = 80, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            bigNum.normal.textColor = new Color(1f, 0.4f, 0.1f, 0.8f);
-            GUI.Label(new Rect(sw / 2 - 100, sh / 2 - 90, 200, 110), Mathf.CeilToInt(t).ToString(), bigNum);
+            GUIStyle bigNum = MakeStyle(80, FontStyle.Bold, TextAnchor.MiddleCenter, new Color(1f, 0.4f, 0.1f, 0.8f));
+            GUI.Label(new Rect(sw / 2 - S(100), sh / 2 - S(90), S(200), S(110)), Mathf.CeilToInt(t).ToString(), bigNum);
 
-            GUIStyle sub = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
-            sub.normal.textColor = Color.white;
-            GUI.Label(new Rect(sw / 2 - 160, sh / 2 + 20, 320, 42), $"Wave {WaveManager.Instance.CurrentWave} incoming!", sub);
+            GUIStyle sub = MakeStyle(26, FontStyle.Normal, TextAnchor.MiddleCenter, Color.white);
+            GUI.Label(new Rect(sw / 2 - S(160), sh / 2 + S(20), S(320), S(42)), $"Wave {WaveManager.Instance.CurrentWave} incoming!", sub);
         }
     }
 
-    void DrawPausedHUD(float sw, float sh)
+    void DrawPausedHUD()
     {
-        // Full screen dim overlay
         GUI.DrawTexture(new Rect(0, 0, sw, sh), MakeTex(new Color(0, 0, 0, 0.5f)));
 
         float cx = sw / 2f;
@@ -205,55 +201,58 @@ public class GameHUD : MonoBehaviour
             return;
         }
 
-        float pw = 300, ph = 320;
+        float pw = S(300), ph = S(320);
         GUI.DrawTexture(new Rect(cx - pw / 2, cy - ph / 2, pw, ph), darkTex);
 
-        GUIStyle pauseTitle = new GUIStyle(headerStyle) { fontSize = 30 };
-        GUI.Label(new Rect(cx - 80, cy - ph / 2 + 15, 160, 45), "PAUSED", pauseTitle);
+        GUIStyle pauseTitle = MakeStyle(30, FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
+        GUI.Label(new Rect(cx - S(80), cy - ph / 2 + S(15), S(160), S(45)), "PAUSED", pauseTitle);
 
-        GUI.DrawTexture(new Rect(cx - 60, cy - ph / 2 + 62, 120, 2), accentTex);
+        GUI.DrawTexture(new Rect(cx - S(60), cy - ph / 2 + S(62), S(120), S(2)), accentTex);
 
-        float btnW = 200, btnH = 42;
+        float btnW = S(200), btnH = S(42);
         float bx = cx - btnW / 2;
-        float by = cy - 55;
-        float sp = 52;
+        float by = cy - S(55);
+        float sp = S(52);
 
-        if (GUI.Button(new Rect(bx, by, btnW, btnH), "Resume", buttonStyle))
+        GUIStyle btn = MakeBtn(16, FontStyle.Bold);
+
+        if (GUI.Button(new Rect(bx, by, btnW, btnH), "Resume", btn))
             GameManager.Instance.ResumeGame();
 
-        if (GUI.Button(new Rect(bx, by + sp, btnW, btnH), "Settings", buttonStyle))
+        if (GUI.Button(new Rect(bx, by + sp, btnW, btnH), "Settings", btn))
             showSettings = true;
 
-        if (GUI.Button(new Rect(bx, by + sp * 2, btnW, btnH), "Main Menu", buttonStyle))
+        if (GUI.Button(new Rect(bx, by + sp * 2, btnW, btnH), "Main Menu", btn))
             GameManager.Instance.LoadMainMenu();
 
-        if (GUI.Button(new Rect(bx, by + sp * 3, btnW, btnH), "Exit Game", buttonStyle))
+        if (GUI.Button(new Rect(bx, by + sp * 3, btnW, btnH), "Exit Game", btn))
             GameManager.Instance.QuitGame();
     }
 
     void DrawSettingsPanel(float cx, float cy)
     {
-        float pw = 420, ph = 320;
+        float pw = S(420), ph = S(320);
         GUI.DrawTexture(new Rect(cx - pw / 2, cy - ph / 2, pw, ph), darkTex);
 
-        GUIStyle header = new GUIStyle(headerStyle) { fontSize = 26 };
-        GUI.Label(new Rect(cx - 80, cy - ph / 2 + 12, 160, 40), "SETTINGS", header);
+        GUIStyle header = MakeStyle(26, FontStyle.Bold, TextAnchor.MiddleCenter, new Color(0.95f, 0.8f, 0.2f));
+        GUI.Label(new Rect(cx - S(80), cy - ph / 2 + S(12), S(160), S(40)), "SETTINGS", header);
 
-        GUI.DrawTexture(new Rect(cx - 60, cy - ph / 2 + 55, 120, 2), accentTex);
+        GUI.DrawTexture(new Rect(cx - S(60), cy - ph / 2 + S(55), S(120), S(2)), accentTex);
 
-        GUIStyle lbl = new GUIStyle(labelStyle) { fontSize = 16 };
-        float sliderX = cx - 140;
-        float sliderW = 280;
-        float y = cy - 65;
+        GUIStyle lbl = MakeStyle(16, FontStyle.Normal, TextAnchor.MiddleLeft, Color.white);
+        float sliderX = cx - S(140);
+        float sliderW = S(280);
+        float y = cy - S(65);
 
-        GUI.Label(new Rect(sliderX, y, 200, 28), "Master Volume", lbl);
-        SoundManager.MasterVolume = DrawSlider(new Rect(sliderX, y + 28, sliderW, 18), SoundManager.MasterVolume);
+        GUI.Label(new Rect(sliderX, y, S(200), S(28)), "Master Volume", lbl);
+        SoundManager.MasterVolume = DrawSlider(new Rect(sliderX, y + S(28), sliderW, S(18)), SoundManager.MasterVolume);
 
-        y += 70;
-        GUI.Label(new Rect(sliderX, y, 200, 28), "SFX Volume", lbl);
-        SoundManager.SFXVolume = DrawSlider(new Rect(sliderX, y + 28, sliderW, 18), SoundManager.SFXVolume);
+        y += S(70);
+        GUI.Label(new Rect(sliderX, y, S(200), S(28)), "SFX Volume", lbl);
+        SoundManager.SFXVolume = DrawSlider(new Rect(sliderX, y + S(28), sliderW, S(18)), SoundManager.SFXVolume);
 
-        if (GUI.Button(new Rect(cx - 80, cy + ph / 2 - 60, 160, 40), "Back", buttonStyle))
+        GUIStyle btn = MakeBtn(16, FontStyle.Bold);
+        if (GUI.Button(new Rect(cx - S(80), cy + ph / 2 - S(60), S(160), S(40)), "Back", btn))
             showSettings = false;
     }
 
@@ -262,98 +261,97 @@ public class GameHUD : MonoBehaviour
         GUI.DrawTexture(rect, sliderBgTex);
         GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width * value, rect.height), sliderFillTex);
 
-        GUIStyle pct = new GUIStyle(labelStyle) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        GUIStyle pct = MakeStyle(12, FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
         GUI.Label(rect, Mathf.RoundToInt(value * 100) + "%", pct);
 
-        return GUI.HorizontalSlider(new Rect(rect.x, rect.y - 4, rect.width, rect.height + 8), value, 0f, 1f);
+        return GUI.HorizontalSlider(new Rect(rect.x, rect.y - S(4), rect.width, rect.height + S(8)), value, 0f, 1f);
     }
 
-    void DrawGameOverHUD(float sw, float sh)
+    void DrawGameOverHUD()
     {
         GUI.DrawTexture(new Rect(0, 0, sw, sh), MakeTex(new Color(0, 0, 0, 0.6f)));
 
         float cx = sw / 2f;
         float cy = sh / 2f;
-        float pw = 350, ph = 260;
+        float pw = S(350), ph = S(260);
 
         GUI.DrawTexture(new Rect(cx - pw / 2, cy - ph / 2, pw, ph), darkTex);
 
-        GUIStyle goStyle = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        goStyle.normal.textColor = Color.red;
-        GUI.Label(new Rect(cx - 160, cy - ph / 2 + 15, 320, 55), "GAME OVER", goStyle);
+        GUIStyle goStyle = MakeStyle(40, FontStyle.Bold, TextAnchor.MiddleCenter, Color.red);
+        GUI.Label(new Rect(cx - S(160), cy - ph / 2 + S(15), S(320), S(55)), "GAME OVER", goStyle);
 
         int wave = GameManager.Instance.CurrentWave;
-        GUIStyle waveLbl = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 18 };
-        GUI.Label(new Rect(cx - 120, cy - 35, 240, 32), $"Survived to Wave {wave}", waveLbl);
+        GUIStyle waveLbl = MakeStyle(18, FontStyle.Normal, TextAnchor.MiddleCenter, Color.white);
+        GUI.Label(new Rect(cx - S(120), cy - S(35), S(240), S(32)), $"Survived to Wave {wave}", waveLbl);
 
-        float btnW = 180, btnH = 42;
-        if (GUI.Button(new Rect(cx - btnW / 2, cy + 15, btnW, btnH), "New Game", buttonStyle))
+        float btnW = S(180), btnH = S(42);
+        GUIStyle btn = MakeBtn(16, FontStyle.Bold);
+        if (GUI.Button(new Rect(cx - btnW / 2, cy + S(15), btnW, btnH), "New Game", btn))
             GameManager.Instance.NewGame();
 
-        if (GUI.Button(new Rect(cx - btnW / 2, cy + 65, btnW, btnH), "Main Menu", buttonStyle))
+        if (GUI.Button(new Rect(cx - btnW / 2, cy + S(65), btnW, btnH), "Main Menu", btn))
             GameManager.Instance.LoadMainMenu();
     }
 
-    void DrawBuildPanel(float sw)
+    void DrawBuildPanel()
     {
-        float px = 8;
-        float py = 60;
-        float pw = 200;
+        float px = S(8);
+        float py = S(60);
+        float pw = S(200);
         int defCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
-        float ph = 540 + defCount * 34;
+        float ph = S(500) + defCount * S(34);
 
         GUI.DrawTexture(new Rect(px, py, pw, ph), darkTex);
 
+        GUIStyle sectionStyle = MakeStyle(14, FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
+        GUIStyle labelStyle = MakeStyle(14, FontStyle.Normal, TextAnchor.MiddleLeft, Color.white);
+        GUIStyle smallBtn = MakeBtn(13);
+
         // TOWER GUNS section
-        GUI.Label(new Rect(px + 12, py + 6, pw - 24, 24), "TOWER GUNS", sectionStyle);
+        GUI.Label(new Rect(px + S(12), py + S(6), pw - S(24), S(24)), "TOWER GUNS", sectionStyle);
 
         int turretCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
         int turretMax = BuildingSystem.MAX_TOWER_DEFENSES;
-        GUIStyle slotLbl = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleRight, fontSize = 12 };
-        slotLbl.normal.textColor = turretCount >= turretMax ? new Color(1f, 0.3f, 0.3f) : Color.cyan;
-        GUI.Label(new Rect(px + 12, py + 6, pw - 24, 24), $"Slots: {turretCount}/{turretMax}", slotLbl);
+        GUIStyle slotLbl = MakeStyle(12, FontStyle.Normal, TextAnchor.MiddleRight, turretCount >= turretMax ? new Color(1f, 0.3f, 0.3f) : Color.cyan);
+        GUI.Label(new Rect(px + S(12), py + S(6), pw - S(24), S(24)), $"Slots: {turretCount}/{turretMax}", slotLbl);
 
-        float by = py + 34;
-        float bh = 30;
-        float sp = 34;
+        float by = py + S(34);
+        float bh = S(30);
+        float sp = S(34);
         bool full = turretCount >= turretMax;
 
         GUI.enabled = !full;
-        if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallBtnStyle))
+        if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallBtn))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.Gun);
-        if (GUI.Button(new Rect(px + 12, by + sp, pw - 24, bh), $"Crossbow ({Defense.GetBuildCost(DefenseType.Crossbow)}g)", smallBtnStyle))
+        if (GUI.Button(new Rect(px + S(12), by + sp, pw - S(24), bh), $"Crossbow ({Defense.GetBuildCost(DefenseType.Crossbow)}g)", smallBtn))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.Crossbow);
-        if (GUI.Button(new Rect(px + 12, by + sp * 2, pw - 24, bh), $"Rocket ({Defense.GetBuildCost(DefenseType.RocketLauncher)}g)", smallBtnStyle))
+        if (GUI.Button(new Rect(px + S(12), by + sp * 2, pw - S(24), bh), $"Rocket ({Defense.GetBuildCost(DefenseType.RocketLauncher)}g)", smallBtn))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.RocketLauncher);
-        if (GUI.Button(new Rect(px + 12, by + sp * 3, pw - 24, bh), $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}g)", smallBtnStyle))
+        if (GUI.Button(new Rect(px + S(12), by + sp * 3, pw - S(24), bh), $"Plasma ({Defense.GetBuildCost(DefenseType.PlasmaGun)}g)", smallBtn))
             BuildingSystem.Instance?.AddTowerDefense(DefenseType.PlasmaGun);
         GUI.enabled = true;
 
         // STRUCTURES section
-        by += sp * 4 + 12;
-        GUI.Label(new Rect(px + 12, by, pw - 24, 24), "STRUCTURES", sectionStyle);
-        by += 26;
+        by += sp * 4 + S(12);
+        GUI.Label(new Rect(px + S(12), by, pw - S(24), S(24)), "STRUCTURES", sectionStyle);
+        by += S(26);
 
         // Mine upgrade
         if (Mine.Instance != null)
         {
             int mLvl = Mine.Instance.Level;
             int mCost = Mine.Instance.GetUpgradeCost();
-            if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Mine Lv{mLvl} ({mCost}g)", smallBtnStyle))
+            if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"Mine Lv{mLvl} ({mCost}g)", smallBtn))
                 Mine.Instance.Upgrade();
-
-            GUIStyle mInfo = new GUIStyle(labelStyle) { fontSize = 10, alignment = TextAnchor.MiddleRight };
-            mInfo.normal.textColor = new Color(1f, 0.85f, 0.2f);
-            GUI.Label(new Rect(px + 12, by + bh - 2, pw - 34, 14), $"{Mine.Instance.CoinPerTick}g/{Mine.Instance.TickInterval:F1}s", mInfo);
         }
 
         // Wall
-        by += sp + 4;
+        by += sp + S(4);
         if (BuildingSystem.Instance != null)
         {
             if (!BuildingSystem.Instance.HasWall)
             {
-                if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Buy Wall ({Wall.GetBuyCost()}g)", smallBtnStyle))
+                if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"Buy Wall ({Wall.GetBuyCost()}g)", smallBtn))
                     BuildingSystem.Instance.BuyWall();
             }
             else
@@ -361,22 +359,22 @@ public class GameHUD : MonoBehaviour
                 int wLvl = BuildingSystem.Instance.WallLevel;
                 int wCost = Wall.Instance != null ? Wall.Instance.GetUpgradeCost() : 0;
                 string shieldNote = wLvl >= 4 ? (wLvl >= 5 ? " [Shield]" : " Shield@5") : "";
-                if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"Upgrade Wall Lv{wLvl} ({wCost}g){shieldNote}", smallBtnStyle))
+                if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"Upgrade Wall Lv{wLvl} ({wCost}g){shieldNote}", smallBtn))
                     BuildingSystem.Instance.UpgradeWall();
             }
         }
 
         // UPGRADES section
-        by += sp + 12;
-        GUI.Label(new Rect(px + 12, by, pw - 24, 24), "UPGRADES", sectionStyle);
-        by += 26;
+        by += sp + S(12);
+        GUI.Label(new Rect(px + S(12), by, pw - S(24), S(24)), "UPGRADES", sectionStyle);
+        by += S(26);
 
         if (Tower.Instance != null)
         {
-            if (GUI.Button(new Rect(px + 12, by, pw - 24, bh), $"HP Lv{Tower.Instance.HealthLevel} ({Tower.Instance.GetHealthUpgradeCost()}g)", smallBtnStyle))
+            if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"HP Lv{Tower.Instance.HealthLevel} ({Tower.Instance.GetHealthUpgradeCost()}g)", smallBtn))
                 Tower.Instance.UpgradeHealth();
 
-            if (GUI.Button(new Rect(px + 12, by + sp, pw - 24, bh), $"Shield Lv{Tower.Instance.ShieldLevel} ({Tower.Instance.GetShieldUpgradeCost()}g)", smallBtnStyle))
+            if (GUI.Button(new Rect(px + S(12), by + sp, pw - S(24), bh), $"Shield Lv{Tower.Instance.ShieldLevel} ({Tower.Instance.GetShieldUpgradeCost()}g)", smallBtn))
                 Tower.Instance.UpgradeShield();
         }
 
@@ -392,13 +390,13 @@ public class GameHUD : MonoBehaviour
                 if (d.Level < Defense.MAX_LEVEL)
                 {
                     string label = $"{d.Type} Lv{d.Level} ({d.GetUpgradeCost()}g)";
-                    if (GUI.Button(new Rect(px + 12, btnY, pw - 24, bh), label, smallBtnStyle))
+                    if (GUI.Button(new Rect(px + S(12), btnY, pw - S(24), bh), label, smallBtn))
                         BuildingSystem.Instance.UpgradeDefense(i);
                 }
                 else
                 {
                     GUI.enabled = false;
-                    GUI.Button(new Rect(px + 12, btnY, pw - 24, bh), $"{d.Type} Lv{d.Level} MAX", smallBtnStyle);
+                    GUI.Button(new Rect(px + S(12), btnY, pw - S(24), bh), $"{d.Type} Lv{d.Level} MAX", smallBtn);
                     GUI.enabled = true;
                 }
             }
