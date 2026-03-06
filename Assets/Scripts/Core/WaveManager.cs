@@ -82,9 +82,17 @@ public class WaveManager : MonoBehaviour
         GameManager.Instance.CurrentWave = CurrentWave;
         waitingForNextWave = false;
 
-        // Start countdown
-        CountdownTimer = (CurrentWave == 1) ? preWaveCountdown : timeBetweenWaves;
-        IsCountingDown = true;
+        // Only countdown before the first wave
+        if (CurrentWave == 1)
+        {
+            CountdownTimer = preWaveCountdown;
+            IsCountingDown = true;
+        }
+        else
+        {
+            IsCountingDown = false;
+            ActuallyStartWave();
+        }
 
         // Regenerate wall shield between waves
         if (Wall.Instance != null)
