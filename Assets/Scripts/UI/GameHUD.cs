@@ -312,13 +312,11 @@ public class GameHUD : MonoBehaviour
 
         int turretCount = BuildingSystem.Instance != null ? BuildingSystem.Instance.TowerDefenseCount : 0;
         int turretMax = BuildingSystem.MAX_TOWER_DEFENSES;
-        GUIStyle slotLbl = MakeStyle(12, FontStyle.Normal, TextAnchor.MiddleRight, turretCount >= turretMax ? new Color(1f, 0.3f, 0.3f) : Color.cyan);
-        GUI.Label(new Rect(px + S(12), py + S(6), pw - S(24), S(24)), $"Slots: {turretCount}/{turretMax}", slotLbl);
+        bool full = turretCount >= turretMax;
 
         float by = py + S(34);
         float bh = S(30);
         float sp = S(34);
-        bool full = turretCount >= turretMax;
 
         GUI.enabled = !full;
         if (GUI.Button(new Rect(px + S(12), by, pw - S(24), bh), $"Gun ({Defense.GetBuildCost(DefenseType.Gun)}g)", smallBtn))
